@@ -63,7 +63,7 @@ class OniaPhotonKinematicFit : public edm::EDProducer {
   private:
     void produce(edm::Event&, const edm::EventSetup&) override;
 
-  double upsilon_mass_;
+  double meson_nS_mass_;
   std::string product_name_;
   edm::EDGetTokenT<pat::CompositeCandidateCollection> chi_Label;
 
@@ -79,7 +79,7 @@ class OniaPhotonKinematicFit : public edm::EDProducer {
 
 OniaPhotonKinematicFit::OniaPhotonKinematicFit(const edm::ParameterSet& iConfig) {
   chi_Label     = consumes<pat::CompositeCandidateCollection>(iConfig.getParameter< edm::InputTag>("chi_cand"));
-  upsilon_mass_ = iConfig.getParameter<double>("upsilon_mass");
+  meson_nS_mass_ = iConfig.getParameter<double>("meson_nS_mass");
   product_name_ = iConfig.getParameter<std::string>("product_name");
   produces<pat::CompositeCandidateCollection>(product_name_);
 }
@@ -87,16 +87,16 @@ OniaPhotonKinematicFit::OniaPhotonKinematicFit(const edm::ParameterSet& iConfig)
 // ------------ method called to produce the data  ------------
 void OniaPhotonKinematicFit::produce(edm::Event& iEvent, const edm::EventSetup& iSetup) {
   
-  // Grab paramenters
+  // Grab parameters
   edm::Handle<pat::CompositeCandidateCollection> chiCandHandle;
   iEvent.getByToken(chi_Label, chiCandHandle);
   
-  //Kinemati refit collection
+  //Kinematic refit collection
   std::unique_ptr<pat::CompositeCandidateCollection> chicCompCandRefitColl(new pat::CompositeCandidateCollection);
   
   // Kinematic fit
-  edm::ESHandle<TransientTrackBuilder> theB; 
-  iSetup.get<TransientTrackRecord>().get("TransientTrackBuilder",theB); 
+  edm::ESHandle<TransientTrackBuilder> TrkBuilder; 
+  iSetup.get<TransientTrackRecord>().get("TransientTrackBuilder",TrkBuilder); 
   
   int indexConversion=-1;
 
@@ -114,12 +114,12 @@ void OniaPhotonKinematicFit::produce(edm::Event& iEvent, const edm::EventSetup& 
     convTracks.push_back(tk1);
 
     std::vector<reco::TransientTrack> MuMuTT;
-    MuMuTT.push_back((*theB).build(&JpsiTk[0]));
-    MuMuTT.push_back((*theB).build(&JpsiTk[1]));
+    MuMuTT.push_back((*TrkBuilder).build(&JpsiTk[0]));
+    MuMuTT.push_back((*TrkBuilder).build(&JpsiTk[1]));
       
     std::vector<reco::TransientTrack> EETT;
-    EETT.push_back((*theB).build(convTracks[0]));
-    EETT.push_back((*theB).build(convTracks[1]));
+    EETT.push_back((*TrkBuilder).build(convTracks[0]));
+    EETT.push_back((*TrkBuilder).build(convTracks[1]));
       
     const ParticleMass zero_mass(0);
     float zero_sigma = 1E-6;
@@ -131,11 +131,12 @@ void OniaPhotonKinematicFit::produce(edm::Event& iEvent, const edm::EventSetup& 
     std::vector<RefCountedKinematicParticle> PhotonParticles;
     PhotonParticles.push_back(pFactory.particle(EETT[0],eleMass,float(0),float(0),eleSigma));
     PhotonParticles.push_back(pFactory.particle(EETT[1],eleMass,float(0),float(0),eleSigma));
-      
+    
     KinematicParticleVertexFitter fitter;
     RefCountedKinematicTree photonVertexFitTree;
     photonVertexFitTree = fitter.fit(PhotonParticles);
-      
+    
+	//try to fit again
     if (!photonVertexFitTree->isValid()) { 
       edm::ParameterSet pSet;
       pSet.addParameter<double>("maxDistance", 3);
@@ -156,105 +157,105 @@ void OniaPhotonKinematicFit::produce(edm::Event& iEvent, const edm::EventSetup& 
 	  
       if (photonVertexFitTree->isValid()) {
 
-	const ParticleMass muonMass(0.1056584);
-	float muonSigma = muonMass*1E-6;
-	      
-	photonVertexFitTree->movePointerToTheTop();
-	RefCountedKinematicParticle fitPhoton = photonVertexFitTree->currentParticle();
-	      
-	std::vector<RefCountedKinematicParticle> allChiBDaughters;
-	allChiBDaughters.push_back(pFactory.particle (MuMuTT[0], muonMass, float(0), float(0), muonSigma));
-	allChiBDaughters.push_back(pFactory.particle (MuMuTT[1], muonMass, float(0), float(0), muonSigma));
-	allChiBDaughters.push_back(fitPhoton);
-	      
-	KinematicConstrainedVertexFitter constVertexFitter;
-	      
-	MultiTrackKinematicConstraint *upsilon_mtc = new  TwoTrackMassKinematicConstraint(upsilon_mass_);
-	RefCountedKinematicTree ChiBTree = constVertexFitter.fit(allChiBDaughters,upsilon_mtc);
+		const ParticleMass muonMass(0.1056584);
+		float muonSigma = muonMass*1E-6;
+			  
+		photonVertexFitTree->movePointerToTheTop();
+		RefCountedKinematicParticle fitPhoton = photonVertexFitTree->currentParticle();
+			  
+		std::vector<RefCountedKinematicParticle> allChiDaughters;
+		allChiDaughters.push_back(pFactory.particle (MuMuTT[0], muonMass, float(0), float(0), muonSigma));
+		allChiDaughters.push_back(pFactory.particle (MuMuTT[1], muonMass, float(0), float(0), muonSigma));
+		allChiDaughters.push_back(fitPhoton);
+			  
+		KinematicConstrainedVertexFitter constVertexFitter;
+			  
+		MultiTrackKinematicConstraint *meson_nS_mtc = new TwoTrackMassKinematicConstraint(meson_nS_mass_);
+		RefCountedKinematicTree ChiTree = constVertexFitter.fit(allChiDaughters,meson_nS_mtc);
 
-	if (!ChiBTree->isEmpty()) {
+		if (!ChiTree->isEmpty()) {
+			  
+		  ChiTree->movePointerToTheTop();
+		  RefCountedKinematicParticle fitChi = ChiTree->currentParticle();
+		  RefCountedKinematicVertex ChiDecayVertex = ChiTree->currentDecayVertex();
 		  
-	  ChiBTree->movePointerToTheTop();
-          RefCountedKinematicParticle fitChiB = ChiBTree->currentParticle();
-          RefCountedKinematicVertex ChiBDecayVertex = ChiBTree->currentDecayVertex();
-		  
-          if (fitChiB->currentState().isValid()) { //Get chib         
+		  if (fitChi->currentState().isValid()) { //Get chi      
 
-            float ChiBM_fit  = fitChiB->currentState().mass();
-	    float ChiBPx_fit = fitChiB->currentState().kinematicParameters().momentum().x();
-            float ChiBPy_fit = fitChiB->currentState().kinematicParameters().momentum().y();
-	    float ChiBPz_fit = fitChiB->currentState().kinematicParameters().momentum().z();
-            float ChiBVtxX_fit = ChiBDecayVertex->position().x();
-            float ChiBVtxY_fit = ChiBDecayVertex->position().y();
-            float ChiBVtxZ_fit = ChiBDecayVertex->position().z();
-            float ChiBVtxP_fit = ChiSquaredProbability((double)(ChiBDecayVertex->chiSquared()),
-                                                       (double)(ChiBDecayVertex->degreesOfFreedom()));
-		      
-            reco::CompositeCandidate recoChib(0, math::XYZTLorentzVector(ChiBPx_fit, ChiBPy_fit, ChiBPz_fit,
-                                              sqrt(ChiBM_fit*ChiBM_fit + ChiBPx_fit*ChiBPx_fit + ChiBPy_fit*ChiBPy_fit +
-                                              ChiBPz_fit*ChiBPz_fit)), math::XYZPoint(ChiBVtxX_fit,
-                                              ChiBVtxY_fit, ChiBVtxZ_fit), 50551);
-		      
-	    pat::CompositeCandidate patChib(recoChib);
-            patChib.addUserFloat("vProb",ChiBVtxP_fit);
-            patChib.addUserInt("Index",indexConversion);  // this also holds the index of the current chiCand
+			float ChiM_fit  = fitChi->currentState().mass();
+			float ChiPx_fit = fitChi->currentState().kinematicParameters().momentum().x();
+			float ChiPy_fit = fitChi->currentState().kinematicParameters().momentum().y();
+			float ChiPz_fit = fitChi->currentState().kinematicParameters().momentum().z();
+			float ChiVtxX_fit = ChiDecayVertex->position().x();
+			float ChiVtxY_fit = ChiDecayVertex->position().y();
+			float ChiVtxZ_fit = ChiDecayVertex->position().z();
+			float ChiVtxP_fit = ChiSquaredProbability((double)(ChiDecayVertex->chiSquared()),
+													   (double)(ChiDecayVertex->degreesOfFreedom()));
+				  
+			reco::CompositeCandidate recoChi(0, math::XYZTLorentzVector(ChiPx_fit, ChiPy_fit, ChiPz_fit,
+												  sqrt(ChiM_fit*ChiM_fit + ChiPx_fit*ChiPx_fit + ChiPy_fit*ChiPy_fit +
+												  ChiPz_fit*ChiPz_fit)), math::XYZPoint(ChiVtxX_fit,
+												  ChiVtxY_fit, ChiVtxZ_fit), 50551);
+				  
+			pat::CompositeCandidate patChi(recoChi);
+			patChi.addUserFloat("vProb",ChiVtxP_fit);
+			patChi.addUserInt("Index",indexConversion);  // this also holds the index of the current chiCand
 
-            //get first muon
-            bool child = ChiBTree->movePointerToTheFirstChild();
-            RefCountedKinematicParticle fitMu1 = ChiBTree->currentParticle();
-            if (!child) break;
+			//get first muon
+			bool child = ChiTree->movePointerToTheFirstChild();
+			RefCountedKinematicParticle fitMu1 = ChiTree->currentParticle();
+			if (!child) break;
 
-            float mu1M_fit  = fitMu1->currentState().mass();
-            float mu1Q_fit  = fitMu1->currentState().particleCharge();
-            float mu1Px_fit = fitMu1->currentState().kinematicParameters().momentum().x();
-	    float mu1Py_fit = fitMu1->currentState().kinematicParameters().momentum().y();
-            float mu1Pz_fit = fitMu1->currentState().kinematicParameters().momentum().z();
-	    reco::CompositeCandidate recoMu1(mu1Q_fit, math::XYZTLorentzVector(mu1Px_fit, mu1Py_fit, mu1Pz_fit, 
-                                             sqrt(mu1M_fit*mu1M_fit + mu1Px_fit*mu1Px_fit + mu1Py_fit*mu1Py_fit + 
-                                             mu1Pz_fit*mu1Pz_fit)), math::XYZPoint(ChiBVtxX_fit, ChiBVtxY_fit, ChiBVtxZ_fit), 13);
-	    pat::CompositeCandidate patMu1(recoMu1);
-		      
-            //get second muon
-            child = ChiBTree->movePointerToTheNextChild();
-	    RefCountedKinematicParticle fitMu2 = ChiBTree->currentParticle();
-            if (!child) break;
+			float mu1M_fit  = fitMu1->currentState().mass();
+			float mu1Q_fit  = fitMu1->currentState().particleCharge();
+			float mu1Px_fit = fitMu1->currentState().kinematicParameters().momentum().x();
+			float mu1Py_fit = fitMu1->currentState().kinematicParameters().momentum().y();
+			float mu1Pz_fit = fitMu1->currentState().kinematicParameters().momentum().z();
+			reco::CompositeCandidate recoMu1(mu1Q_fit, math::XYZTLorentzVector(mu1Px_fit, mu1Py_fit, mu1Pz_fit, 
+												 sqrt(mu1M_fit*mu1M_fit + mu1Px_fit*mu1Px_fit + mu1Py_fit*mu1Py_fit + 
+												 mu1Pz_fit*mu1Pz_fit)), math::XYZPoint(ChiVtxX_fit, ChiVtxY_fit, ChiVtxZ_fit), 13);
+			pat::CompositeCandidate patMu1(recoMu1);
+				  
+			//get second muon
+			child = ChiTree->movePointerToTheNextChild();
+			RefCountedKinematicParticle fitMu2 = ChiTree->currentParticle();
+			if (!child) break;
 
-	    float mu2M_fit  = fitMu2->currentState().mass();
-            float mu2Q_fit  = fitMu2->currentState().particleCharge();
-            float mu2Px_fit = fitMu2->currentState().kinematicParameters().momentum().x();
-	    float mu2Py_fit = fitMu2->currentState().kinematicParameters().momentum().y();
-	    float mu2Pz_fit = fitMu2->currentState().kinematicParameters().momentum().z();
-            reco::CompositeCandidate recoMu2(mu2Q_fit, math::XYZTLorentzVector(mu2Px_fit, mu2Py_fit, mu2Pz_fit,
-                                             sqrt(mu2M_fit*mu2M_fit + mu2Px_fit*mu2Px_fit + mu2Py_fit*mu2Py_fit + 
-                                             mu2Pz_fit*mu2Pz_fit)), math::XYZPoint(ChiBVtxX_fit, ChiBVtxY_fit, ChiBVtxZ_fit), 13);
-            pat::CompositeCandidate patMu2(recoMu2);
-		      		  
-            //Define Onia from two muons
-            pat::CompositeCandidate ups;
-            ups.addDaughter(patMu1,"muon1");
-            ups.addDaughter(patMu2,"muon2");	
-            ups.setP4(patMu1.p4()+patMu2.p4());
-		  
-            //get photon
-            child = ChiBTree->movePointerToTheNextChild();
-            RefCountedKinematicParticle fitGamma = ChiBTree->currentParticle();
-	    if (!child) break;
-		      
-	    float gammaM_fit  = fitGamma->currentState().mass();
-            float gammaPx_fit = fitGamma->currentState().kinematicParameters().momentum().x();
-	    float gammaPy_fit = fitGamma->currentState().kinematicParameters().momentum().y();
-            float gammaPz_fit = fitGamma->currentState().kinematicParameters().momentum().z();
-	    reco::CompositeCandidate recoGamma(0, math::XYZTLorentzVector(gammaPx_fit, gammaPy_fit, gammaPz_fit, 
-                                               sqrt(gammaM_fit*gammaM_fit + gammaPx_fit*gammaPx_fit + gammaPy_fit*gammaPy_fit +
-                                               gammaPz_fit*gammaPz_fit)), math::XYZPoint(ChiBVtxX_fit, ChiBVtxY_fit, ChiBVtxZ_fit), 22);
-            pat::CompositeCandidate patGamma(recoGamma);
+			float mu2M_fit  = fitMu2->currentState().mass();
+			float mu2Q_fit  = fitMu2->currentState().particleCharge();
+			float mu2Px_fit = fitMu2->currentState().kinematicParameters().momentum().x();
+			float mu2Py_fit = fitMu2->currentState().kinematicParameters().momentum().y();
+			float mu2Pz_fit = fitMu2->currentState().kinematicParameters().momentum().z();
+			reco::CompositeCandidate recoMu2(mu2Q_fit, math::XYZTLorentzVector(mu2Px_fit, mu2Py_fit, mu2Pz_fit,
+												 sqrt(mu2M_fit*mu2M_fit + mu2Px_fit*mu2Px_fit + mu2Py_fit*mu2Py_fit + 
+												 mu2Pz_fit*mu2Pz_fit)), math::XYZPoint(ChiVtxX_fit, ChiVtxY_fit, ChiVtxZ_fit), 13);
+			pat::CompositeCandidate patMu2(recoMu2);
+						  
+			//Define Onia from two muons
+			pat::CompositeCandidate ups;
+			ups.addDaughter(patMu1,"muon1");
+			ups.addDaughter(patMu2,"muon2");	
+			ups.setP4(patMu1.p4()+patMu2.p4());
+			  
+			//get photon
+			child = ChiTree->movePointerToTheNextChild();
+			RefCountedKinematicParticle fitGamma = ChiTree->currentParticle();
+			if (!child) break;
+				  
+			float gammaM_fit  = fitGamma->currentState().mass();
+			float gammaPx_fit = fitGamma->currentState().kinematicParameters().momentum().x();
+			float gammaPy_fit = fitGamma->currentState().kinematicParameters().momentum().y();
+			float gammaPz_fit = fitGamma->currentState().kinematicParameters().momentum().z();
+			reco::CompositeCandidate recoGamma(0, math::XYZTLorentzVector(gammaPx_fit, gammaPy_fit, gammaPz_fit, 
+												   sqrt(gammaM_fit*gammaM_fit + gammaPx_fit*gammaPx_fit + gammaPy_fit*gammaPy_fit +
+												   gammaPz_fit*gammaPz_fit)), math::XYZPoint(ChiVtxX_fit, ChiVtxY_fit, ChiVtxZ_fit), 22);
+			pat::CompositeCandidate patGamma(recoGamma);
 
-            patChib.addDaughter(ups,"dimuon");
-            patChib.addDaughter(patGamma,"photon");
+			patChi.addDaughter(ups,"dimuon");
+			patChi.addDaughter(patGamma,"photon");
 
-	    chicCompCandRefitColl->push_back(patChib);
-	  }
-	}
+			chicCompCandRefitColl->push_back(patChi);
+		  }
+		}
       }
     }
   }  

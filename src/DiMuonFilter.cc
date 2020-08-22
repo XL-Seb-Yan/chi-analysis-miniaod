@@ -25,7 +25,7 @@ class DiMuonFilter : public edm::EDProducer {
   StringCutObjectSelector<reco::Candidate, true> SingleMuonSelection_;
   StringCutObjectSelector<reco::Candidate, true> DiMuonSelection_;
   bool do_trigger_match_;
-  std::vector<std::string> HLTFilters_;
+  std::vector<std::string> HLTPaths_;
 };
 
 DiMuonFilter::DiMuonFilter(const edm::ParameterSet& iConfig):
@@ -33,7 +33,7 @@ DiMuonFilter::DiMuonFilter(const edm::ParameterSet& iConfig):
   SingleMuonSelection_(iConfig.existsAs<std::string>("singlemuonSelection") ? iConfig.getParameter<std::string>("singlemuonSelection") : ""),
   DiMuonSelection_(iConfig.existsAs<std::string>("dimuonSelection") ? iConfig.getParameter<std::string>("dimuonSelection") : ""),
   do_trigger_match_(iConfig.getParameter<bool>("do_trigger_match")),
-  HLTFilters_(iConfig.getParameter<std::vector<std::string>>("HLTFilters"))
+  HLTPaths_(iConfig.getParameter<std::vector<std::string>>("HLTPaths"))
 {  
   produces<pat::CompositeCandidateCollection>();  
 }
@@ -43,11 +43,10 @@ UInt_t DiMuonFilter::isTriggerMatched(const pat::CompositeCandidate *diMuon_cand
   const pat::Muon* muon2 = dynamic_cast<const pat::Muon*>(diMuon_cand->daughter("muon2"));
   UInt_t matched = 0;  // if no list is given, is not matched 
 
-// if matched a given trigger, set the bit, in the same order as listed
-  for (unsigned int iTr = 0; iTr<HLTFilters_.size(); iTr++ ) {
-     const pat::TriggerObjectStandAloneCollection mu1HLTMatches = muon1->triggerObjectMatchesByFilter(HLTFilters_[iTr]);
-     const pat::TriggerObjectStandAloneCollection mu2HLTMatches = muon2->triggerObjectMatchesByFilter(HLTFilters_[iTr]);
-     if (!mu1HLTMatches.empty() && !mu2HLTMatches.empty()) matched += (1<<iTr); 
+  // if matched a given trigger, set the bit, in the same order as listed
+  for (unsigned int iTr = 0; iTr<HLTPaths_.size(); iTr++ ) {
+     if (muon1->triggerObjectMatchByPath(HLTPaths_[iTr])!=nullptr && muon2->triggerObjectMatchByPath(HLTPaths_[iTr])!=nullptr) 
+         matched += (1<<iTr); //Assign trigger bits, iTr=0:...000001 iTr=1:...000010
   }
   return matched;
 }
