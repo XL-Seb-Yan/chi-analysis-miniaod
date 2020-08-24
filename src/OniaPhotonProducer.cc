@@ -36,20 +36,20 @@ void OniaPhotonProducer::produce(edm::Event& event, const edm::EventSetup& esetu
      // loop on conversion candidates, make chi cand
      for (pat::CompositeCandidateCollection::const_iterator conv = conversions->begin(); conv!= conversions->end(); ++conv){
 
-	pat::CompositeCandidate chiCand = makeChiCandidate(*dimuonCand, *conv);
-    
-	if (!cutDeltaMass(chiCand,*dimuonCand)){
-	   delta_mass_fail++;
-	   continue;
-	}
-	const reco::Vertex *ipv = dimuonCand->userData<reco::Vertex>("commonVertex");
-    	float dz = fabs(Getdz(*conv,ipv->position()));              // onia2mumu stores vertex as userData
-	chiCand.addUserFloat("dz",dz);
+        pat::CompositeCandidate chiCand = makeChiCandidate(*dimuonCand, *conv);
+        
+        if (!cutDeltaMass(chiCand,*dimuonCand)){
+           delta_mass_fail++;
+           continue;
+        }
+        const reco::Vertex *ipv = dimuonCand->userData<reco::Vertex>("commonVertex");
+        float dz = fabs(Getdz(*conv,ipv->position()));              // onia2mumu stores vertex as userData
+        chiCand.addUserFloat("dz",dz);
 
-	if (!cutdz(dz)){
-	   dz_cut_fail++;	
-	   continue;
-	}
+        if (!cutdz(dz)){
+           dz_cut_fail++;	
+           continue;
+        }
 
         int flags = (conv->userInt("flags")%32);
         bool pi0_fail = flags&8;
@@ -58,8 +58,8 @@ void OniaPhotonProducer::produce(edm::Event& event, const edm::EventSetup& esetu
            continue;
         }
 
-	chiCandColl->push_back(chiCand);
-	candidates++;    
+        chiCandColl->push_back(chiCand);
+        candidates++;    
      }
   }
   event.put(std::move(chiCandColl));
@@ -87,8 +87,7 @@ void OniaPhotonProducer::endJob(){
   std::cout << "###########################" << std::endl;
 }
   
-const pat::CompositeCandidate OniaPhotonProducer::makeChiCandidate(const pat::CompositeCandidate& dimuon, 
-				  const pat::CompositeCandidate& photon){
+const pat::CompositeCandidate OniaPhotonProducer::makeChiCandidate(const pat::CompositeCandidate& dimuon, const pat::CompositeCandidate& photon){
   pat::CompositeCandidate chiCand;
   chiCand.addDaughter(dimuon,"dimuon");
   chiCand.addDaughter(photon,"photon");

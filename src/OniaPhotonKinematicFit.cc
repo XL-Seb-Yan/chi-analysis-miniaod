@@ -231,10 +231,10 @@ void OniaPhotonKinematicFit::produce(edm::Event& iEvent, const edm::EventSetup& 
 			pat::CompositeCandidate patMu2(recoMu2);
 						  
 			//Define Onia from two muons
-			pat::CompositeCandidate ups;
-			ups.addDaughter(patMu1,"muon1");
-			ups.addDaughter(patMu2,"muon2");	
-			ups.setP4(patMu1.p4()+patMu2.p4());
+			pat::CompositeCandidate meson_1S;
+			meson_1S.addDaughter(patMu1,"muon1");
+			meson_1S.addDaughter(patMu2,"muon2");	
+			meson_1S.setP4(patMu1.p4()+patMu2.p4());
 			  
 			//get photon
 			child = ChiTree->movePointerToTheNextChild();
@@ -250,7 +250,7 @@ void OniaPhotonKinematicFit::produce(edm::Event& iEvent, const edm::EventSetup& 
 												   gammaPz_fit*gammaPz_fit)), math::XYZPoint(ChiVtxX_fit, ChiVtxY_fit, ChiVtxZ_fit), 22);
 			pat::CompositeCandidate patGamma(recoGamma);
 
-			patChi.addDaughter(ups,"dimuon");
+			patChi.addDaughter(meson_1S,"dimuon");
 			patChi.addDaughter(patGamma,"photon");
 
 			chicCompCandRefitColl->push_back(patChi);
@@ -258,8 +258,19 @@ void OniaPhotonKinematicFit::produce(edm::Event& iEvent, const edm::EventSetup& 
 		}
       }
     }
+	else{
+		reco::CompositeCandidate recoempty(0, math::XYZTLorentzVector(0,0,0,0), math::XYZPoint(0,0,0), -99);
+		pat::CompositeCandidate patempty(recoempty);
+		chicCompCandRefitColl->push_back(patempty);
+	}
+	//if photon vertex is not valid, nothing is write ti the chicCompCandRefitColl, thus, the length of refit1P is not equal to chiCand
   }  
   // End kinematic fit
+  
+  if(chicCompCandRefitColl->size() > 0){
+	std::cout<<"======= We have: "<<indexConversion+1<<" of ChiCands ======="<<std::endl;
+	std::cout<<"======= We have: "<<chicCompCandRefitColl->size()<<" of patChis ======="<<std::endl;
+  }
 
   // ...ash not sorted, since we will use the best un-refitted candidate
   // now sort by vProb

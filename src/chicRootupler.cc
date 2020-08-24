@@ -45,8 +45,8 @@ class chicRootupler:public edm::EDAnalyzer {
         edm::EDGetTokenT<pat::CompositeCandidateCollection> refit1_;
         edm::EDGetTokenT<reco::VertexCollection>            primaryVertices_;
         edm::EDGetTokenT<edm::TriggerResults>               triggerResults_;
-
 		bool isMC_;
+		edm::EDGetTokenT<reco::GenParticleCollection>       genCands_;
 
 		UInt_t    run;
         ULong64_t event;
@@ -58,10 +58,10 @@ class chicRootupler:public edm::EDAnalyzer {
 		TLorentzVector muonM_p4;
 		TLorentzVector photon_p4;
 
-		TLorentzVector rf1S_chi_p4;
-		Double_t invm1S;
-        Double_t probFit1S;
-		Double_t meson_1S_nsigma;
+		TLorentzVector rf1P_chi_p4;
+		Double_t invm1P;
+        Double_t probFit1P;
+		//Double_t meson_1P_nsigma; //This can be access later on with dimuon_p4.Rapidity() and dimuon_p4.M()
 
 		Double_t ele_lowerPt_pt;
 		Double_t ele_higherPt_pt;
@@ -73,7 +73,7 @@ class chicRootupler:public edm::EDAnalyzer {
 		UInt_t photon_flags;
 		UInt_t numPrimaryVertices;
 		UInt_t trigger;
-		UInt_t rf1S_rank;
+		UInt_t rf1P_rank;
 
 		TTree *chi_tree;
 
@@ -86,36 +86,23 @@ class chicRootupler:public edm::EDAnalyzer {
 		TLorentzVector gen_muonP_p4;
 		TLorentzVector gen_muonM_p4;
 
-        edm::EDGetTokenT<reco::GenParticleCollection> genCands_;
-
         TTree *meson_nS_tree;
         TLorentzVector mumu_p4, muP_p4, muM_p4;
         UInt_t mumu_rank;
 
 };
 
-static const double pi0_mass =  0.134977;
-static const double meson_1SMass  =  3.0969;
-
-/*
-// 2011 par
-static const double Y_sig_par_A = 0.058;
-static const double Y_sig_par_B = 0.047;
-static const double Y_sig_par_C = 0.22;
-*/
-
-// 2012 par
-static const double Y_sig_par_A = 62.62;
-static const double Y_sig_par_B = 56.3;
-static const double Y_sig_par_C = -20.77;
+static const double pi0_mass = 0.134977;
+static const double meson_1SMass = 3.0969;
 
 chicRootupler::chicRootupler(const edm::ParameterSet & iConfig): 
-chi_(consumes<pat::CompositeCandidateCollection>(iConfig.getParameter < edm::InputTag > ("chi_cand"))),
-meson_nS_(consumes<pat::CompositeCandidateCollection>(iConfig.getParameter < edm::InputTag > ("meson_nS_cand"))),
-refit1_(consumes<pat::CompositeCandidateCollection>(iConfig.getParameter < edm::InputTag > ("refit1S"))),
-primaryVertices_(consumes<reco::VertexCollection>(iConfig.getParameter < edm::InputTag > ("primaryVertices"))),
-triggerResults_(consumes<edm::TriggerResults>(iConfig.getParameter < edm::InputTag > ("TriggerResults"))), 
-isMC_(iConfig.getParameter < bool > ("isMC"))
+    chi_(consumes<pat::CompositeCandidateCollection>(iConfig.getParameter < edm::InputTag > ("chi_cand"))),
+    meson_nS_(consumes<pat::CompositeCandidateCollection>(iConfig.getParameter < edm::InputTag > ("meson_nS_cand"))),
+    refit1_(consumes<pat::CompositeCandidateCollection>(iConfig.getParameter < edm::InputTag > ("refit1P"))),
+    primaryVertices_(consumes<reco::VertexCollection>(iConfig.getParameter < edm::InputTag > ("primaryVertices"))),
+    triggerResults_(consumes<edm::TriggerResults>(iConfig.getParameter < edm::InputTag > ("TriggerResults"))), 
+    isMC_(iConfig.getParameter < bool > ("isMC")),
+	genCands_(consumes<reco::GenParticleCollection>(iConfig.getParameter < edm::InputTag > ("GenParticles")))
 {
     edm::Service < TFileService > fs;
     chi_tree = fs->make < TTree > ("chiTree", "Tree of chic");
@@ -130,10 +117,9 @@ isMC_(iConfig.getParameter < bool > ("isMC"))
     chi_tree->Branch("muonM_p4",  "TLorentzVector", &muonM_p4);
     chi_tree->Branch("photon_p4", "TLorentzVector", &photon_p4);
 
-    chi_tree->Branch("rf1S_chi_p4", "TLorentzVector", &rf1S_chi_p4);
-    chi_tree->Branch("invm1S",      &invm1S,          "invm1S/D");
-    chi_tree->Branch("probFit1S",   &probFit1S,       "probFit1S/D");
-    chi_tree->Branch("meson_1S_nsigma",  &meson_1S_nsigma,      "meson_1S_nsigma/D");
+    chi_tree->Branch("rf1P_chi_p4", "TLorentzVector", &rf1P_chi_p4);
+    chi_tree->Branch("invm1P",      &invm1P,          "invm1P/D");
+    chi_tree->Branch("probFit1P",   &probFit1P,       "probFit1P/D");
 
     chi_tree->Branch("ele_lowerPt_pt",  &ele_lowerPt_pt,  "ele_lowerPt_pt/D");
     chi_tree->Branch("ele_higherPt_pt", &ele_higherPt_pt, "ele_higherPt_pt/D");
@@ -147,7 +133,7 @@ isMC_(iConfig.getParameter < bool > ("isMC"))
 
     chi_tree->Branch("numPrimaryVertices", &numPrimaryVertices, "numPrimaryVertices/i");
     chi_tree->Branch("trigger",            &trigger,            "trigger/i");
-    chi_tree->Branch("rf1S_rank",          &rf1S_rank,          "rf1S_rank/i");
+    chi_tree->Branch("rf1P_rank",          &rf1P_rank,          "rf1P_rank/i");
 
     if (isMC_) {
        chi_tree->Branch("chi_pdgId",     &chi_pdgId,        "chi_pdgId/I");
@@ -159,7 +145,6 @@ isMC_(iConfig.getParameter < bool > ("isMC"))
        chi_tree->Branch("gen_muonP_p4",  "TLorentzVector",  &gen_muonP_p4);
        chi_tree->Branch("gen_muonM_p4",  "TLorentzVector",  &gen_muonM_p4);
     }
-    genCands_ = consumes<reco::GenParticleCollection>((edm::InputTag)"prunedGenParticles");
 
     meson_nS_tree = fs->make<TTree>("JpsiTree","Tree of Jpsi");
     meson_nS_tree->Branch("mumu_p4",  "TLorentzVector", &mumu_p4);
@@ -186,8 +171,8 @@ void chicRootupler::analyze(const edm::Event & iEvent, const edm::EventSetup & i
   edm::Handle < pat::CompositeCandidateCollection >meson_nS_hand;
   iEvent.getByToken(meson_nS_, meson_nS_hand);
 
-  edm::Handle < pat::CompositeCandidateCollection >refit1S_handle;
-  iEvent.getByToken(refit1_, refit1S_handle);
+  edm::Handle < pat::CompositeCandidateCollection >refit1P_handle;
+  iEvent.getByToken(refit1_, refit1P_handle);
 
   edm::Handle < reco::VertexCollection  >primaryVertices_handle;
   iEvent.getByToken(primaryVertices_, primaryVertices_handle);
@@ -201,7 +186,7 @@ void chicRootupler::analyze(const edm::Event & iEvent, const edm::EventSetup & i
   lumiblock = iEvent.id().luminosityBlock();
 
   pat::CompositeCandidate chi_cand;
-  pat::CompositeCandidate refit1S;
+  pat::CompositeCandidate refit1P;
 
   edm::Handle<reco::GenParticleCollection> pruned;
   iEvent.getByToken(genCands_,pruned);
@@ -315,7 +300,7 @@ void chicRootupler::analyze(const edm::Event & iEvent, const edm::EventSetup & i
 	else std::cout << "*** NO triggerResults found " << iEvent.id().run() << "," << iEvent.id().event() << std::endl;
 
     bool bestCandidateOnly_ = false;
-    rf1S_rank = 0;
+    rf1P_rank = 0;
     photon_flags = 0;
     // grabbing chi inforamtion
     if (chi_cand_handle.isValid() && !chi_cand_handle->empty()) {
@@ -324,69 +309,65 @@ void chicRootupler::analyze(const edm::Event & iEvent, const edm::EventSetup & i
        if (bestCandidateOnly_) csize = 1;
 
        for (unsigned int i = 0; i < csize; i++) {
-	   chi_cand = chi_cand_handle->at(i);
+         chi_cand = chi_cand_handle->at(i);
 
-	   chi_p4.SetPtEtaPhiM(chi_cand.pt(), chi_cand.eta(), chi_cand.phi(), chi_cand.mass());
-	   dimuon_p4.SetPtEtaPhiM(chi_cand.daughter("dimuon")->pt(), chi_cand.daughter("dimuon")->eta(), 
-                                  chi_cand.daughter("dimuon")->phi(), chi_cand.daughter("dimuon")->mass());
+         chi_p4.SetPtEtaPhiM(chi_cand.pt(), chi_cand.eta(), chi_cand.phi(), chi_cand.mass());
+         dimuon_p4.SetPtEtaPhiM(chi_cand.daughter("dimuon")->pt(), chi_cand.daughter("dimuon")->eta(), 
+                                    chi_cand.daughter("dimuon")->phi(), chi_cand.daughter("dimuon")->mass());
 
-	   photon_p4.SetPtEtaPhiM(chi_cand.daughter("photon")->pt(), chi_cand.daughter("photon")->eta(), 
-                                  chi_cand.daughter("photon")->phi(), chi_cand.daughter("photon")->mass());
+         photon_p4.SetPtEtaPhiM(chi_cand.daughter("photon")->pt(), chi_cand.daughter("photon")->eta(), 
+                                    chi_cand.daughter("photon")->phi(), chi_cand.daughter("photon")->mass());
 
-	   reco::Candidate::LorentzVector vP = chi_cand.daughter("dimuon")->daughter("muon1")->p4();
-	   reco::Candidate::LorentzVector vM = chi_cand.daughter("dimuon")->daughter("muon2")->p4();
+         reco::Candidate::LorentzVector vP = chi_cand.daughter("dimuon")->daughter("muon1")->p4();
+         reco::Candidate::LorentzVector vM = chi_cand.daughter("dimuon")->daughter("muon2")->p4();
 
-	   if (chi_cand.daughter("dimuon")->daughter("muon1")->charge() < 0) {
-	      vP = chi_cand.daughter("dimuon")->daughter("muon2")->p4();
-	      vM = chi_cand.daughter("dimuon")->daughter("muon1")->p4();
-	   }
+         if (chi_cand.daughter("dimuon")->daughter("muon1")->charge() < 0) {
+            vP = chi_cand.daughter("dimuon")->daughter("muon2")->p4();
+            vM = chi_cand.daughter("dimuon")->daughter("muon1")->p4();
+         }
 
-	   muonP_p4.SetPtEtaPhiM(vP.pt(), vP.eta(), vP.phi(), vP.mass());
-	   muonM_p4.SetPtEtaPhiM(vM.pt(), vM.eta(), vM.phi(), vM.mass());
+         muonP_p4.SetPtEtaPhiM(vP.pt(), vP.eta(), vP.phi(), vP.mass());
+         muonM_p4.SetPtEtaPhiM(vM.pt(), vM.eta(), vM.phi(), vM.mass());
 
-	   Double_t ele1_pt = (dynamic_cast<const pat::CompositeCandidate *>(chi_cand.daughter("photon"))->
-                                    userData<reco::Track>("track0"))->pt();
-	   Double_t ele2_pt = (dynamic_cast<const pat::CompositeCandidate *>(chi_cand.daughter("photon"))->
-                                    userData<reco::Track>("track1"))->pt();
+         Double_t ele1_pt = (dynamic_cast<const pat::CompositeCandidate *>(chi_cand.daughter("photon"))->
+                                      userData<reco::Track>("track0"))->pt();
+         Double_t ele2_pt = (dynamic_cast<const pat::CompositeCandidate *>(chi_cand.daughter("photon"))->
+                                      userData<reco::Track>("track1"))->pt();
 
-	   if (ele1_pt > ele2_pt) {
-	      ele_higherPt_pt = ele1_pt;
-	      ele_lowerPt_pt = ele2_pt;
-	   } else {
-	      ele_higherPt_pt = ele2_pt;
-	      ele_lowerPt_pt = ele1_pt;
-	   }
+         if (ele1_pt > ele2_pt) {
+            ele_higherPt_pt = ele1_pt;
+            ele_lowerPt_pt = ele2_pt;
+         } else {
+            ele_higherPt_pt = ele2_pt;
+            ele_lowerPt_pt = ele1_pt;
+         }
 
-	   ctpv = (dynamic_cast < pat::CompositeCandidate * >(chi_cand.daughter("dimuon")))->userFloat("ppdlPV");
-	   ctpv_error = (dynamic_cast < pat::CompositeCandidate * >(chi_cand.daughter("dimuon")))->userFloat("ppdlErrPV");
-	   photon_flags = (UInt_t) dynamic_cast<const pat::CompositeCandidate *>(chi_cand.daughter("photon"))->userInt("flags");
+         ctpv = (dynamic_cast < pat::CompositeCandidate * >(chi_cand.daughter("dimuon")))->userFloat("ppdlPV");
+         ctpv_error = (dynamic_cast < pat::CompositeCandidate * >(chi_cand.daughter("dimuon")))->userFloat("ppdlErrPV");
+         photon_flags = (UInt_t) dynamic_cast<const pat::CompositeCandidate *>(chi_cand.daughter("photon"))->userInt("flags");
 
-	   conv_vertex = chi_cand.daughter("photon")->vertex().rho();
-	   dz = chi_cand.userFloat("dz");
-
-	   // 2012 parameterization
-	   double sigma = Y_sig_par_A + Y_sig_par_B * pow(fabs(dimuon_p4.Rapidity()), 2) + 
-                          Y_sig_par_C * pow(fabs(dimuon_p4.Rapidity()), 3);
-
-	   meson_1S_nsigma = fabs(dimuon_p4.M() - meson_1SMass) / sigma;
-           double QValue = chi_p4.M() - dimuon_p4.M();
-
-           invm1S = QValue + meson_1SMass;
-
-           int j = -1;
-           if (refit1S_handle.isValid() && i < refit1S_handle->size()) { j = (refit1S_handle->at(i)).userInt("Index"); }
-	   if ( j >= 0  && (unsigned int) j == i ) {
-	      refit1S = refit1S_handle->at(i);
-	      rf1S_chi_p4.SetPtEtaPhiM(refit1S.pt(), refit1S.eta(), refit1S.phi(), refit1S.mass());
-	      probFit1S = refit1S.userFloat("vProb");
-	   } else {
-	      rf1S_chi_p4.SetPtEtaPhiM(chi_cand.pt(), chi_cand.eta(), chi_cand.phi(), invm1S);
-	      probFit1S = 0;
-	   }	// if rf1S is valid
-	   chi_tree->Fill();
-           rf1S_rank++;
-	}		// for i on chi_cand_handle
-    } //else std::cout << "no valid chi handle" << std::endl;
+         conv_vertex = chi_cand.daughter("photon")->vertex().rho();
+         dz = chi_cand.userFloat("dz");
+         
+         double QValue = chi_p4.M() - dimuon_p4.M();
+         invm1P = QValue + meson_1SMass;
+		 
+		 if(refit1P_handle.isValid() && !refit1P_handle->empty()){
+			 refit1P = refit1P_handle->at(i);
+			 if(refit1P.pdgId() == -99){ //if this chi_cand does not pass the fit
+				rf1P_chi_p4.SetPtEtaPhiM(chi_cand.pt(), chi_cand.eta(), chi_cand.phi(), invm1P);
+				probFit1P = 0;
+			 }
+			 else{
+				 rf1P_chi_p4.SetPtEtaPhiM(refit1P.pt(), refit1P.eta(), refit1P.phi(), refit1P.mass());
+				 probFit1P = refit1P.userFloat("vProb");
+			 }
+		 }
+		 
+         chi_tree->Fill();
+         rf1P_rank++;
+      }		// for i on chi_cand_handle
+    } 
     
     mumu_rank = 0;
     if (meson_nS_hand.isValid() && !meson_nS_hand->empty()) {
