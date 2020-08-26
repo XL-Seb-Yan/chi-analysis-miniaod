@@ -1,4 +1,5 @@
-input_filename = '/store/data/Run2018D/Charmonium/MINIAOD/PromptReco-v2/000/322/625/00000/68679BCD-B4B9-E811-B6EE-FA163E1B57DB.root'
+#input_filename = '/store/data/Run2018D/Charmonium/MINIAOD/PromptReco-v2/000/322/625/00000/68679BCD-B4B9-E811-B6EE-FA163E1B57DB.root'
+input_filename = '/store/data/Run2018A/Charmonium/MINIAOD/PromptReco-v2/000/316/240/00000/9E9A8843-9459-E811-93DC-FA163EEAACDE.root'
 ouput_filename = 'rootuple.root'
 
 import FWCore.ParameterSet.Config as cms

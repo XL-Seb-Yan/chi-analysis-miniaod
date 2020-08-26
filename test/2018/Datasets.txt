@@ -1,0 +1,8 @@
+/Charmonium/Run2018A-17Sep2018-v1/MINIAOD
+/Charmonium/Run2018B-17Sep2018-v1/MINIAOD
+/Charmonium/Run2018C-17Sep2018-v1/MINIAOD
+/Charmonium/Run2018D-PromptReco-v2/MINIAOD
+
+https://cms-service-dqm.web.cern.ch/cms-service-dqm/CAF/certification/Collisions18/13TeV/ReReco/Cert_314472-325175_13TeV_17SeptEarlyReReco2018ABC_PromptEraD_Collisions18_JSON_MuonPhys.txt
+
+102X_dataRun2_v13 (ABC) and 102X_dataRun2_Prompt_v16 (D)

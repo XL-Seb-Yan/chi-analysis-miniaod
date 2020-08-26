@@ -1,5 +1,5 @@
-input_filename = '/store/data/Run2018D/Charmonium/MINIAOD/12Nov2019_UL2018-v1/420000/E0DC31EE-0429-B448-A21E-522E2C1A1A47.root'
-ouput_filename = 'rootuple.root'
+input_filename = '/store/mc/RunIIAutumn18MiniAOD/ChicToJpsiGamma_MuFilter_TuneCP5_13TeV_pythia8-evtgen/MINIAODSIM/N1_102X_upgrade2018_realistic_v15-v2/90000/E2D7602A-6166-7C4C-80DF-BB494AA54721.root'
+ouput_filename = 'rootuple_MC.root'
 
 import FWCore.ParameterSet.Config as cms
 process = cms.Process("Rootuple")
@@ -9,7 +9,7 @@ process.load('Configuration.StandardSequences.MagneticField_38T_cff')
 process.load('Configuration.StandardSequences.Reconstruction_cff')
 process.load('Configuration.StandardSequences.FrontierConditions_GlobalTag_condDBv2_cff')
 from Configuration.AlCa.GlobalTag_condDBv2 import GlobalTag
-process.GlobalTag = GlobalTag(process.GlobalTag, '102X_dataRun2_Prompt_v16', '')
+process.GlobalTag = GlobalTag(process.GlobalTag, '102X_upgrade2018_realistic_v21', '')
 
 process.load("FWCore.MessageLogger.MessageLogger_cfi")
 process.MessageLogger.cerr.FwkReport.reportEvery = 10000
@@ -19,9 +19,9 @@ process.source = cms.Source("PoolSource",fileNames = cms.untracked.vstring(input
 process.TFileService = cms.Service("TFileService",fileName = cms.string(ouput_filename))
 process.options   = cms.untracked.PSet( wantSummary = cms.untracked.bool(False))
 
-import FWCore.PythonUtilities.LumiList as LumiList
-lumi_list = LumiList.LumiList(filename ='Cert_314472-325175_13TeV_17SeptEarlyReReco2018ABC_PromptEraD_Collisions18_JSON_MuonPhys.txt').getVLuminosityBlockRange()
-process.source.lumisToProcess = lumi_list
+# import FWCore.PythonUtilities.LumiList as LumiList
+# lumi_list = LumiList.LumiList(filename ='Cert_314472-325175_13TeV_17SeptEarlyReReco2018ABC_PromptEraD_Collisions18_JSON_MuonPhys.txt').getVLuminosityBlockRange()
+# process.source.lumisToProcess = lumi_list
 
 process.triggerSelection = cms.EDFilter("TriggerResultsFilter",
                                         triggerConditions = cms.vstring('HLT_Dimuon0_Jpsi3p5_Muon2_v*',
@@ -61,13 +61,20 @@ process.load("Ponia.OniaPhoton.slimmedMuonsTriggerMatcher_cfi")
 # In MiniAOD, the PATMuons are already present. We just need to run Onia2MuMu, with a selection of muons.
 process.oniaSelectedMuons = cms.EDFilter('PATMuonSelector',
    src = cms.InputTag('slimmedMuonsWithTrigger'),
-   cut = cms.string('muonID(\"TMOneStationTight\")'
-                    ' && abs(innerTrack.dxy) < 0.3'
-                    ' && abs(innerTrack.dz)  < 20.'
-                    ' && innerTrack.hitPattern.trackerLayersWithMeasurement > 5'
+   # cut = cms.string('muonID(\"TMOneStationTight\")'
+                    # ' && abs(innerTrack.dxy) < 0.3'
+                    # ' && abs(innerTrack.dz)  < 20.'
+                    # ' && innerTrack.hitPattern.trackerLayersWithMeasurement > 5'
+                    # ' && innerTrack.hitPattern.pixelLayersWithMeasurement > 0'
+                    # ' && innerTrack.quality(\"highPurity\")'
+                    # ' && (abs(eta) <= 1.4 && pt > 4.)'
+  cut = cms.string('muonID(\"TMOneStationTight\")'
+                    ' && abs(innerTrack.dxy) < 1'
+                    ' && abs(innerTrack.dz)  < 50.'
+                    ' && innerTrack.hitPattern.trackerLayersWithMeasurement > 2'
                     ' && innerTrack.hitPattern.pixelLayersWithMeasurement > 0'
                     ' && innerTrack.quality(\"highPurity\")'
-                    ' && (abs(eta) <= 1.4 && pt > 4.)'
+                    ' && (abs(eta) <= 1.4 && pt > 2.)'
    ),
    filter = cms.bool(True)
 )
@@ -79,12 +86,13 @@ process.onia2MuMuPAT.beamSpotTag=cms.InputTag('offlineBeamSpot')
 process.onia2MuMuPAT.higherPuritySelection=cms.string("")
 process.onia2MuMuPAT.lowerPuritySelection=cms.string("")
 process.onia2MuMuPAT.dimuonSelection=cms.string("2.7 < mass && mass < 3.5")
-process.onia2MuMuPAT.addMCTruth = cms.bool(False)
+process.onia2MuMuPAT.addMCTruth = cms.bool(True)
 
 process.Onia2MuMuFiltered = cms.EDProducer('DiMuonFilter',
       OniaTag             = cms.InputTag("onia2MuMuPAT"),
       singlemuonSelection = cms.string(""),             
-      dimuonSelection     = cms.string("2.9 < mass && mass < 3.3 && pt > 20. && abs(y) < 1.2 && charge==0 && userFloat('vProb') > 0.01"),
+      # dimuonSelection     = cms.string("2.9 < mass && mass < 3.3 && pt > 20. && abs(y) < 1.2 && charge==0 && userFloat('vProb') > 0.01"),
+      dimuonSelection     = cms.string("2.9 < mass && mass < 3.3 && pt > 10. && abs(y) < 1.2 && charge==0 && userFloat('vProb') > 0.01"),
       do_trigger_match    = cms.bool(True),
       HLTPaths          = cms.vstring('HLT_Dimuon0_Jpsi3p5_Muon2_v*',
                                       'HLT_Dimuon0_Jpsi_L1_4R_0er1p5R_v*',
@@ -124,7 +132,8 @@ process.chiProducer = cms.EDProducer('OniaPhotonProducer',
     conversions     = cms.InputTag("oniaPhotonCandidates","conversions"),
     dimuons         = cms.InputTag("Onia2MuMuFiltered"),
     pi0OnlineSwitch = cms.bool(False),
-    deltaMass       = cms.vdouble(0.0,2.0),
+    deltaMass       = cms.vdouble(0.0,10.0),
+    # deltaMass       = cms.vdouble(0.0,2.0),
     dzmax           = cms.double(0.5),
     triggerMatch    = cms.bool(False)  # trigger match is performed in Onia2MuMuFiltered
 )
@@ -152,7 +161,7 @@ process.rootuple = cms.EDAnalyzer('chicRootupler',
                           refit1P  = cms.InputTag("chiFitter","jpsi"),
                           primaryVertices = cms.InputTag("offlineSlimmedPrimaryVertices"),
                           TriggerResults  = cms.InputTag("TriggerResults", "", "HLT"),
-                          isMC = cms.bool(False),
+                          isMC = cms.bool(True),
                           GenParticles = cms.InputTag("prunedGenParticles")
                          )
 
