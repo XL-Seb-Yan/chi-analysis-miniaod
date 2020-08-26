@@ -135,8 +135,16 @@ process.chiFitter = cms.EDProducer('OniaPhotonKinematicFit',
                           meson_nS_mass = cms.double(3.0969), # GeV   Y1S = 9.46030   Y2S = 10.02326    Y3S = 10.35520  J/psi(1S)=3.0969
                           product_name = cms.string("jpsi") # means we are looking for chi_c decaying to J/psi 
                          )
+                         
+process.XFitter = cms.EDProducer('XDecayTreeKinematicFit',
+                          chi_cand = cms.InputTag("chiProducer"),
+                          meson_nS_cand = cms.InputTag("Onia2MuMuFiltered"),
+                          track = cms.InputTag("packedPFCandidates"),
+                          meson_nS_mass = cms.double(3.0969), # GeV  J/psi(1S)=3.0969
+                          product_name = cms.string("X_Charged") # means we are looking for charged partner of X3872
+                         )
 
-process.chiSequence = cms.Sequence(
+process.XSequence = cms.Sequence(
                                    process.triggerSelection *
                                    process.slimmedMuonsWithTriggerSequence *
                                    process.oniaSelectedMuons *
@@ -144,7 +152,8 @@ process.chiSequence = cms.Sequence(
                                    process.Onia2MuMuFiltered *
                                    process.DiMuonCounter *
                                    process.chiProducer *
-                                   process.chiFitter
+                                   process.chiFitter *
+                                   process.XFitter
 				   )
 
 process.rootuple = cms.EDAnalyzer('chicRootupler',
@@ -157,4 +166,4 @@ process.rootuple = cms.EDAnalyzer('chicRootupler',
                           GenParticles = cms.InputTag("prunedGenParticles")
                          )
 
-process.p = cms.Path(process.chiSequence*process.rootuple)
+process.p = cms.Path(process.XSequence*process.rootuple)

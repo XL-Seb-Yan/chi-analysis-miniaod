@@ -1,8 +1,18 @@
-/Charmonium/Run2018A-17Sep2018-v1/MINIAOD
-/Charmonium/Run2018B-17Sep2018-v1/MINIAOD
-/Charmonium/Run2018C-17Sep2018-v1/MINIAOD
-/Charmonium/Run2018D-PromptReco-v2/MINIAOD
+/Charmonium/Run2018A-12Nov2019_UL2018_rsb-v1/MINIAOD
+/Charmonium/Run2018B-12Nov2019_UL2018-v1/MINIAOD
+/Charmonium/Run2018C-12Nov2019_UL2018-v1/MINIAOD
+/Charmonium/Run2018D-12Nov2019_UL2018-v1/MINIAOD
 
 https://cms-service-dqm.web.cern.ch/cms-service-dqm/CAF/certification/Collisions18/13TeV/ReReco/Cert_314472-325175_13TeV_17SeptEarlyReReco2018ABC_PromptEraD_Collisions18_JSON_MuonPhys.txt
 
 102X_dataRun2_v13 (ABC) and 102X_dataRun2_Prompt_v16 (D)
+
+Useful links:
+Track from packedPFCandidates: https://twiki.cern.ch/twiki/bin/view/CMSPublic/WorkBookMiniAOD2015#Packed_ParticleFlow_Candidates
+https://twiki.cern.ch/twiki/bin/view/CMSPublic/WorkBookMiniAOD2017
+
+Very nice examples: https://github.com/jmejiagu/MiniAODBphysics2018/blob/cmssw1029/src/JPsiphi.cc
+
+Where the conversion photon is reconstructed: https://cmssdt.cern.ch/lxr/source/HeavyFlavorAnalysis/Onia2MuMu/?v=CMSSW_10_6_10
+
+Things about kinematic fit: https://twiki.cern.ch/twiki/bin/view/CMSPublic/SWGuideKinematicVertexFit
