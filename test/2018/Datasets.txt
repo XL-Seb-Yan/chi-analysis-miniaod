@@ -10,9 +10,12 @@ https://cms-service-dqm.web.cern.ch/cms-service-dqm/CAF/certification/Collisions
 Useful links:
 Track from packedPFCandidates: https://twiki.cern.ch/twiki/bin/view/CMSPublic/WorkBookMiniAOD2015#Packed_ParticleFlow_Candidates
 https://twiki.cern.ch/twiki/bin/view/CMSPublic/WorkBookMiniAOD2017
+https://github.com/lbenato/LLP2018/blob/68586a713bed1a6bf27dbfe7e27c676c37fa5f78/plugins/PFCandidateAnalyzer.h
 
 Very nice examples: https://github.com/jmejiagu/MiniAODBphysics2018/blob/cmssw1029/src/JPsiphi.cc
 
 Where the conversion photon is reconstructed: https://cmssdt.cern.ch/lxr/source/HeavyFlavorAnalysis/Onia2MuMu/?v=CMSSW_10_6_10
 
 Things about kinematic fit: https://twiki.cern.ch/twiki/bin/view/CMSPublic/SWGuideKinematicVertexFit
+
+Something about the muons: https://indico.cern.ch/event/42388/contributions/1907894/attachments/896910/1263901/MuonTutorial.pdf

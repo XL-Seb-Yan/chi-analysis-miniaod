@@ -133,7 +133,8 @@ process.chiProducer = cms.EDProducer('OniaPhotonProducer',
 process.chiFitter = cms.EDProducer('OniaPhotonKinematicFit',
                           chi_cand = cms.InputTag("chiProducer"),
                           meson_nS_mass = cms.double(3.0969), # GeV   Y1S = 9.46030   Y2S = 10.02326    Y3S = 10.35520  J/psi(1S)=3.0969
-                          product_name = cms.string("jpsi") # means we are looking for chi_c decaying to J/psi 
+                          product_name = cms.string("jpsi"), # means we are looking for chi_c decaying to J/psi 
+                          is_Debug = cms.bool(True)
                          )
                          
 process.XFitter = cms.EDProducer('XDecayTreeKinematicFit',
@@ -141,7 +142,8 @@ process.XFitter = cms.EDProducer('XDecayTreeKinematicFit',
                           meson_nS_cand = cms.InputTag("Onia2MuMuFiltered"),
                           track = cms.InputTag("packedPFCandidates"),
                           meson_nS_mass = cms.double(3.0969), # GeV  J/psi(1S)=3.0969
-                          product_name = cms.string("X_Charged") # means we are looking for charged partner of X3872
+                          product_name = cms.string("XCharged"), # means we are looking for charged partner of X3872
+                          is_Debug = cms.bool(True)
                          )
 
 process.XSequence = cms.Sequence(
