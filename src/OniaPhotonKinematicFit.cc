@@ -106,10 +106,6 @@ void OniaPhotonKinematicFit::produce(edm::Event& iEvent, const edm::EventSetup& 
   
   int indexConversion=-1;
   
-  //Empty dummy pat
-  reco::CompositeCandidate recoempty(0, math::XYZTLorentzVector(0,0,0,0), math::XYZPoint(0,0,0), -99);
-  pat::CompositeCandidate patempty(recoempty);
-  
   //Internal counter
   int validchi = 0;
 
@@ -161,7 +157,6 @@ void OniaPhotonKinematicFit::produce(edm::Event& iEvent, const edm::EventSetup& 
 	//If the process is stopped because kinematic fit / cut failed, push_back an empty CompositeCandidate into chicCompCandRefitColl, thus, each chiCand would have its own refit1P (even though it might be empty) to access in the tuplizer
     if (!photonVertexFitTree->isValid()) {
 		if(isDebug_) std::cout<<"Photon vertex fit is invalid, continue"<<std::endl;
-		chicCompCandRefitColl->push_back(patempty);
 		continue;
 	}
 
@@ -174,7 +169,6 @@ void OniaPhotonKinematicFit::produce(edm::Event& iEvent, const edm::EventSetup& 
 	photonVertexFitTree = csFitterPhoton.fit(pho_c,photonVertexFitTree);
 	if (!photonVertexFitTree->isValid()) {
 		if(isDebug_) std::cout<<"Constrained photon vertex fit is invalid, continue"<<std::endl;
-		chicCompCandRefitColl->push_back(patempty);
 		continue;
 	}
 
@@ -196,7 +190,6 @@ void OniaPhotonKinematicFit::produce(edm::Event& iEvent, const edm::EventSetup& 
 
 	if (ChiTree->isEmpty()) {
 		if(isDebug_) std::cout<<"Constrained chi vertex fit is invalid, continue"<<std::endl;
-		chicCompCandRefitColl->push_back(patempty);
 		continue;
 	}
 		  
@@ -206,7 +199,6 @@ void OniaPhotonKinematicFit::produce(edm::Event& iEvent, const edm::EventSetup& 
 
 	if (!fitChi->currentState().isValid()) {
 		if(isDebug_) std::cout<<"Fitted chi is invalid, continue"<<std::endl;
-		chicCompCandRefitColl->push_back(patempty);
 		continue;
 	}
 
@@ -235,7 +227,6 @@ void OniaPhotonKinematicFit::produce(edm::Event& iEvent, const edm::EventSetup& 
 	RefCountedKinematicParticle fitMu1 = ChiTree->currentParticle();
 	if (!child) {
 		if(isDebug_) std::cout<<"Muon 1 is invalid, continue"<<std::endl;
-		chicCompCandRefitColl->push_back(patempty);
 		continue;
 	}
 
@@ -254,7 +245,6 @@ void OniaPhotonKinematicFit::produce(edm::Event& iEvent, const edm::EventSetup& 
 	RefCountedKinematicParticle fitMu2 = ChiTree->currentParticle();
 	if (!child) {
 		if(isDebug_) std::cout<<"Muon 2 daughter is invalid, continue"<<std::endl;
-		chicCompCandRefitColl->push_back(patempty);
 		continue;
 	}
 
@@ -279,7 +269,6 @@ void OniaPhotonKinematicFit::produce(edm::Event& iEvent, const edm::EventSetup& 
 	RefCountedKinematicParticle fitGamma = ChiTree->currentParticle();
 	if (!child) {
 		if(isDebug_) std::cout<<"Photon is invalid, continue"<<std::endl;
-		chicCompCandRefitColl->push_back(patempty);
 		continue;
 	}
 		  

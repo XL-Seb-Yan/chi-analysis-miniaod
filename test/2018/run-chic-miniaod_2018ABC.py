@@ -1,5 +1,5 @@
 #input_filename = '/store/data/Run2018D/Charmonium/MINIAOD/PromptReco-v2/000/322/625/00000/68679BCD-B4B9-E811-B6EE-FA163E1B57DB.root'
-input_filename = '/store/data/Run2018A/Charmonium/MINIAOD/PromptReco-v2/000/316/240/00000/9E9A8843-9459-E811-93DC-FA163EEAACDE.root'
+# input_filename = '/store/data/Run2018A/Charmonium/MINIAOD/PromptReco-v2/000/316/240/00000/9E9A8843-9459-E811-93DC-FA163EEAACDE.root'
 ouput_filename = 'rootuple.root'
 
 import FWCore.ParameterSet.Config as cms
@@ -15,8 +15,11 @@ process.GlobalTag = GlobalTag(process.GlobalTag, '102X_dataRun2_v13', '')
 process.load("FWCore.MessageLogger.MessageLogger_cfi")
 process.MessageLogger.cerr.FwkReport.reportEvery = 10000
 
-process.maxEvents = cms.untracked.PSet(input = cms.untracked.int32(10000))
-process.source = cms.Source("PoolSource",fileNames = cms.untracked.vstring(input_filename))
+process.maxEvents = cms.untracked.PSet(input = cms.untracked.int32(-1))
+process.source = cms.Source("PoolSource",fileNames = cms.untracked.vstring(
+'/store/data/Run2018A/Charmonium/MINIAOD/12Nov2019_UL2018_rsb-v1/50000/2FF05A98-9A5F-5C45-840D-1374AA7AB5F6.root',
+'/store/data/Run2018A/Charmonium/MINIAOD/12Nov2019_UL2018_rsb-v1/50000/2BCED88A-F4AA-F546-B61F-ED3CF29421EF.root',
+'/store/data/Run2018A/Charmonium/MINIAOD/12Nov2019_UL2018_rsb-v1/50000/2B604BD2-B401-E446-A9AB-AD7EDA2B45EA.root'))
 process.TFileService = cms.Service("TFileService",fileName = cms.string(ouput_filename))
 process.options   = cms.untracked.PSet( wantSummary = cms.untracked.bool(False))
 
@@ -130,20 +133,21 @@ process.chiProducer = cms.EDProducer('OniaPhotonProducer',
     triggerMatch    = cms.bool(False)  # trigger match is performed in Onia2MuMuFiltered
 )
 
-process.chiFitter = cms.EDProducer('OniaPhotonKinematicFit',
-                          chi_cand = cms.InputTag("chiProducer"),
-                          meson_nS_mass = cms.double(3.0969), # GeV   Y1S = 9.46030   Y2S = 10.02326    Y3S = 10.35520  J/psi(1S)=3.0969
-                          product_name = cms.string("jpsi"), # means we are looking for chi_c decaying to J/psi 
-                          is_Debug = cms.bool(True)
-                         )
+# process.chiFitter = cms.EDProducer('OniaPhotonKinematicFit',
+                          # chi_cand = cms.InputTag("chiProducer"),
+                          # meson_nS_mass = cms.double(3.0969), # GeV   Y1S = 9.46030   Y2S = 10.02326    Y3S = 10.35520  J/psi(1S)=3.0969
+                          # product_name = cms.string("jpsi"), # means we are looking for chi_c decaying to J/psi 
+                          # is_Debug = cms.bool(True)
+                         # )
                          
 process.XFitter = cms.EDProducer('XDecayTreeKinematicFit',
                           chi_cand = cms.InputTag("chiProducer"),
                           meson_nS_cand = cms.InputTag("Onia2MuMuFiltered"),
                           track = cms.InputTag("packedPFCandidates"),
                           meson_nS_mass = cms.double(3.0969), # GeV  J/psi(1S)=3.0969
-                          product_name = cms.string("XCharged"), # means we are looking for charged partner of X3872
-                          is_Debug = cms.bool(True)
+                          chi_product_name = cms.string("Chic"),
+                          X_product_name = cms.string("XCharged"), # means we are looking for charged partner of X3872
+                          is_Debug = cms.bool(False)
                          )
 
 process.XSequence = cms.Sequence(
@@ -154,14 +158,15 @@ process.XSequence = cms.Sequence(
                                    process.Onia2MuMuFiltered *
                                    process.DiMuonCounter *
                                    process.chiProducer *
-                                   process.chiFitter *
+                                   # process.chiFitter *
                                    process.XFitter
 				   )
 
 process.rootuple = cms.EDAnalyzer('chicRootupler',
                           chi_cand = cms.InputTag("chiProducer"),
                           meson_nS_cand = cms.InputTag("Onia2MuMuFiltered"),
-                          refit1P  = cms.InputTag("chiFitter","jpsi"),
+                          refit1P  = cms.InputTag("XFitter","Chic"),
+                          refitX  = cms.InputTag("XFitter","XCharged"),
                           primaryVertices = cms.InputTag("offlineSlimmedPrimaryVertices"),
                           TriggerResults  = cms.InputTag("TriggerResults", "", "HLT"),
                           isMC = cms.bool(False),

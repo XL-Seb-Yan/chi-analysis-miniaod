@@ -78,10 +78,12 @@ class XDecayTreeKinematicFit : public edm::EDProducer {
 	edm::EDGetTokenT<pat::CompositeCandidateCollection> meson_nS_Label;
 	edm::EDGetTokenT<std::vector<pat::PackedCandidate>> track_Label; //only work if it is std::vector<pat::PackedCandidate>...
     double meson_nS_mass_;
-    std::string product_name_;
+	std::string chi_product_name_;
+    std::string X_product_name_;
 	bool isDebug_;
 	
-	int candidates;
+	int chi_fitted_candidates;
+	int X_fitted_candidates;
 	int mass;
     
 
@@ -100,10 +102,13 @@ XDecayTreeKinematicFit::XDecayTreeKinematicFit(const edm::ParameterSet& iConfig)
   meson_nS_Label  = consumes<pat::CompositeCandidateCollection>(iConfig.getParameter< edm::InputTag>("meson_nS_cand"));
   track_Label     = consumes<std::vector<pat::PackedCandidate>>(iConfig.getParameter< edm::InputTag>("track")),
   meson_nS_mass_  = iConfig.getParameter<double>("meson_nS_mass");
-  product_name_   = iConfig.getParameter<std::string>("product_name");
-  produces<pat::CompositeCandidateCollection>(product_name_);
+  chi_product_name_   = iConfig.getParameter<std::string>("chi_product_name");
+  X_product_name_   = iConfig.getParameter<std::string>("X_product_name");
+  produces<pat::CompositeCandidateCollection>(chi_product_name_);
+  produces<pat::CompositeCandidateCollection>(X_product_name_);
   isDebug_ = iConfig.getParameter<bool>("is_Debug");
-  candidates = 0;
+  chi_fitted_candidates = 0;
+  X_fitted_candidates = 0;
 }
 
 // ------------ method called to produce the data  ------------
@@ -114,6 +119,7 @@ void XDecayTreeKinematicFit::produce(edm::Event& iEvent, const edm::EventSetup& 
   iEvent.getByToken(chi_Label, chiCandHandle);
   
   //Kinematic refit collection
+  std::unique_ptr<pat::CompositeCandidateCollection> chicCompCandRefitColl(new pat::CompositeCandidateCollection);
   std::unique_ptr<pat::CompositeCandidateCollection> XCompCandRefitColl(new pat::CompositeCandidateCollection);
   
   // Kinematic fit
@@ -121,10 +127,6 @@ void XDecayTreeKinematicFit::produce(edm::Event& iEvent, const edm::EventSetup& 
   iSetup.get<TransientTrackRecord>().get("TransientTrackBuilder",TTrkBuilder); 
   
   int indexChiCand=-1;
-  
-  //Empty dummy pat
-  reco::CompositeCandidate recoempty(0, math::XYZTLorentzVector(0,0,0,0), math::XYZPoint(0,0,0), -99);
-  pat::CompositeCandidate patempty(recoempty);
   
   //Internal counter
   int validchi = 0;
@@ -179,7 +181,6 @@ void XDecayTreeKinematicFit::produce(edm::Event& iEvent, const edm::EventSetup& 
     //If the process is stopped because kinematic fit / cut failed, push_back an empty CompositeCandidate into XCompCandRefitColl, thus, each chiCand would have its own refit1P (even though it might be empty) to access in the tuplizer
     if (!photonVertexFitTree->isValid()) {
 		if(isDebug_) std::cout<<">>>>> Photon vertex fit is invalid, continue <<<<<"<<std::endl;
-		XCompCandRefitColl->push_back(patempty);
 		continue;
 	}
 	  
@@ -192,7 +193,6 @@ void XDecayTreeKinematicFit::produce(edm::Event& iEvent, const edm::EventSetup& 
 	photonVertexFitTree = csFitterPhoton.fit(pho_c,photonVertexFitTree);
 	if (!photonVertexFitTree->isValid()) {
 		if(isDebug_) std::cout<<">>>>> Constrained photon vertex fit is invalid, continue <<<<<"<<std::endl;
-		XCompCandRefitColl->push_back(patempty);
 		continue;
 	}
 
@@ -214,7 +214,6 @@ void XDecayTreeKinematicFit::produce(edm::Event& iEvent, const edm::EventSetup& 
 
 	if (ChiTree->isEmpty()) {
 		if(isDebug_) std::cout<<">>>>> Constrained chi vertex fit is invalid, continue <<<<<"<<std::endl;
-		XCompCandRefitColl->push_back(patempty);
 		continue;
 	}
 		  
@@ -224,11 +223,95 @@ void XDecayTreeKinematicFit::produce(edm::Event& iEvent, const edm::EventSetup& 
 
 	if (!fitChi->currentState().isValid()) {
 		if(isDebug_) std::cout<<">>>>> Fitted chi is invalid, continue <<<<<"<<std::endl;
-		XCompCandRefitColl->push_back(patempty);
 		continue;
 	}
 	
+	//Get chi      
+	float ChiM_fit  = fitChi->currentState().mass();
+	float ChiPx_fit = fitChi->currentState().kinematicParameters().momentum().x();
+	float ChiPy_fit = fitChi->currentState().kinematicParameters().momentum().y();
+	float ChiPz_fit = fitChi->currentState().kinematicParameters().momentum().z();
+	float ChiVtxX_fit = ChiDecayVertex->position().x();
+	float ChiVtxY_fit = ChiDecayVertex->position().y();
+	float ChiVtxZ_fit = ChiDecayVertex->position().z();
+	float ChiVtxP_fit = ChiSquaredProbability((double)(ChiDecayVertex->chiSquared()),
+											   (double)(ChiDecayVertex->degreesOfFreedom()));
+		  
+	reco::CompositeCandidate recoChi_3trkfit(0, math::XYZTLorentzVector(ChiPx_fit, ChiPy_fit, ChiPz_fit,
+										  sqrt(ChiM_fit*ChiM_fit + ChiPx_fit*ChiPx_fit + ChiPy_fit*ChiPy_fit +
+										  ChiPz_fit*ChiPz_fit)), math::XYZPoint(ChiVtxX_fit,
+										  ChiVtxY_fit, ChiVtxZ_fit), 50551);
+		  
+	pat::CompositeCandidate patChi_3trkfit(recoChi_3trkfit);
+	patChi_3trkfit.addUserFloat("vProb",ChiVtxP_fit);
+	patChi_3trkfit.addUserInt("Index",indexChiCand);  // this also holds the index of the current chiCand
+
+	//get first muon
+	bool child = ChiTree->movePointerToTheFirstChild();
+	RefCountedKinematicParticle fitMu1_3trkfit = ChiTree->currentParticle();
+	if (!child) {
+		if(isDebug_) std::cout<<"Muon 1 is invalid in chi 3-track fit, continue"<<std::endl;
+		continue;
+	}
+
+	float mu1M_3trkfit  = fitMu1_3trkfit->currentState().mass();
+	float mu1Q_3trkfit  = fitMu1_3trkfit->currentState().particleCharge();
+	float mu1Px_3trkfit = fitMu1_3trkfit->currentState().kinematicParameters().momentum().x();
+	float mu1Py_3trkfit = fitMu1_3trkfit->currentState().kinematicParameters().momentum().y();
+	float mu1Pz_3trkfit = fitMu1_3trkfit->currentState().kinematicParameters().momentum().z();
+	reco::CompositeCandidate recoMu1_3trkfit(mu1Q_3trkfit, math::XYZTLorentzVector(mu1Px_3trkfit, mu1Py_3trkfit, mu1Pz_3trkfit, 
+										 sqrt(mu1M_3trkfit*mu1M_3trkfit + mu1Px_3trkfit*mu1Px_3trkfit + mu1Py_3trkfit*mu1Py_3trkfit + 
+										 mu1Pz_3trkfit*mu1Pz_3trkfit)), math::XYZPoint(ChiVtxX_fit, ChiVtxY_fit, ChiVtxZ_fit), 13);
+	pat::CompositeCandidate patMu1_3trkfit(recoMu1_3trkfit);
+		  
+	//get second muon
+	child = ChiTree->movePointerToTheNextChild();
+	RefCountedKinematicParticle fitMu2_3trkfit = ChiTree->currentParticle();
+	if (!child) {
+		if(isDebug_) std::cout<<"Muon 2 is invalid in chi 3-track fit, continue"<<std::endl;
+		continue;
+	}
+
+	float mu2M_3trkfit  = fitMu2_3trkfit->currentState().mass();
+	float mu2Q_3trkfit  = fitMu2_3trkfit->currentState().particleCharge();
+	float mu2Px_3trkfit = fitMu2_3trkfit->currentState().kinematicParameters().momentum().x();
+	float mu2Py_3trkfit = fitMu2_3trkfit->currentState().kinematicParameters().momentum().y();
+	float mu2Pz_3trkfit = fitMu2_3trkfit->currentState().kinematicParameters().momentum().z();
+	reco::CompositeCandidate recoMu2_3trkfit(mu2Q_3trkfit, math::XYZTLorentzVector(mu2Px_3trkfit, mu2Py_3trkfit, mu2Pz_3trkfit, 
+										 sqrt(mu2M_3trkfit*mu2M_3trkfit + mu2Px_3trkfit*mu2Px_3trkfit + mu2Py_3trkfit*mu2Py_3trkfit + 
+										 mu2Pz_3trkfit*mu2Pz_3trkfit)), math::XYZPoint(ChiVtxX_fit, ChiVtxY_fit, ChiVtxZ_fit), 13);
+	pat::CompositeCandidate patMu2_3trkfit(recoMu2_3trkfit);
+				  
+	//Define Onia from two muons
+	pat::CompositeCandidate meson_1S_3trkfit;
+	meson_1S_3trkfit.addDaughter(patMu1_3trkfit,"muon1");
+	meson_1S_3trkfit.addDaughter(patMu2_3trkfit,"muon2");	
+	meson_1S_3trkfit.setP4(patMu1_3trkfit.p4() + patMu2_3trkfit.p4());
+	  
+	//get photon
+	child = ChiTree->movePointerToTheNextChild();
+	RefCountedKinematicParticle fitGamma_3trkfit = ChiTree->currentParticle();
+	if (!child) {
+		if(isDebug_) std::cout<<"Photon is invalid in chi 3-track fit, continue"<<std::endl;
+		continue;
+	}
+		  
+	float gammaM_3trkfit  = fitGamma_3trkfit->currentState().mass();
+	float gammaPx_3trkfit = fitGamma_3trkfit->currentState().kinematicParameters().momentum().x();
+	float gammaPy_3trkfit = fitGamma_3trkfit->currentState().kinematicParameters().momentum().y();
+	float gammaPz_3trkfit = fitGamma_3trkfit->currentState().kinematicParameters().momentum().z();
+	reco::CompositeCandidate recoGamma_3trkfit(0, math::XYZTLorentzVector(gammaPx_3trkfit, gammaPy_3trkfit, gammaPz_3trkfit, 
+										   sqrt(gammaM_3trkfit*gammaM_3trkfit + gammaPx_3trkfit*gammaPx_3trkfit + gammaPy_3trkfit*gammaPy_3trkfit +
+										   gammaPz_3trkfit*gammaPz_3trkfit)), math::XYZPoint(ChiVtxX_fit, ChiVtxY_fit, ChiVtxZ_fit), 22);
+	pat::CompositeCandidate patGamma_3trkfit(recoGamma_3trkfit);
+
+	patChi_3trkfit.addDaughter(meson_1S_3trkfit,"dimuon");
+	patChi_3trkfit.addDaughter(patGamma_3trkfit,"photon");
+
+	chicCompCandRefitColl->push_back(patChi_3trkfit);	
+	
 	validchi++;
+	chi_fitted_candidates++;
 
 	edm::Handle<std::vector<pat::PackedCandidate>> trackHandle;
 	iEvent.getByToken(track_Label, trackHandle);
@@ -294,7 +377,6 @@ void XDecayTreeKinematicFit::produce(edm::Event& iEvent, const edm::EventSetup& 
 
 		if (XTree->isEmpty()) {
 			if(isDebug_) std::cout<<">>>>> Constrained X vertex fit is invalid with #"<<trk_index<<" track, continue <<<<<"<<std::endl;
-			XCompCandRefitColl->push_back(patempty);
 			continue;
 		}
 
@@ -304,7 +386,6 @@ void XDecayTreeKinematicFit::produce(edm::Event& iEvent, const edm::EventSetup& 
 
 		if (fittedX->currentState().isValid()) {
 			if(isDebug_) std::cout<<">>>>> Fitted X is invalid with #"<<trk_index<<" track, continue <<<<<"<<std::endl;
-			XCompCandRefitColl->push_back(patempty);
 			continue;
 		}
 
@@ -332,7 +413,6 @@ void XDecayTreeKinematicFit::produce(edm::Event& iEvent, const edm::EventSetup& 
 		RefCountedKinematicParticle fitMu1 = XTree->currentParticle();
 		if (!child) {
 			if(isDebug_) std::cout<<">>>>> Muon 1 is invalid with #"<<trk_index<<" track, continue <<<<<"<<std::endl;
-			XCompCandRefitColl->push_back(patempty);
 			continue;
 		}
 
@@ -351,7 +431,6 @@ void XDecayTreeKinematicFit::produce(edm::Event& iEvent, const edm::EventSetup& 
 		RefCountedKinematicParticle fitMu2 = XTree->currentParticle();
 		if (!child) {
 			if(isDebug_) std::cout<<">>>>> Muon 2 is invalid with #"<<trk_index<<" track, continue <<<<<"<<std::endl;
-			XCompCandRefitColl->push_back(patempty);
 			continue;
 		}
 
@@ -366,11 +445,10 @@ void XDecayTreeKinematicFit::produce(edm::Event& iEvent, const edm::EventSetup& 
 		pat::CompositeCandidate patMu2(recoMu2);
 		
 		//get photon
-		child = XTree->movePointerToTheFirstChild();
+		child = XTree->movePointerToTheNextChild();
 		RefCountedKinematicParticle fitGamma = XTree->currentParticle();
 		if (!child) {
 			if(isDebug_) std::cout<<">>>>> Photon is invalid with #"<<trk_index<<" track, continue <<<<<"<<std::endl;
-			XCompCandRefitColl->push_back(patempty);
 			continue;
 		}
 			  
@@ -384,11 +462,10 @@ void XDecayTreeKinematicFit::produce(edm::Event& iEvent, const edm::EventSetup& 
 		pat::CompositeCandidate patGamma(recoGamma);
 		
 		//get pion
-		child = XTree->movePointerToTheFirstChild();
+		child = XTree->movePointerToTheNextChild();
 		RefCountedKinematicParticle fitpion = XTree->currentParticle();
 		if (!child) {
 			if(isDebug_) std::cout<<">>>>> Pion is invalid with #"<<trk_index<<" track, continue <<<<<"<<std::endl;
-			XCompCandRefitColl->push_back(patempty);
 			continue;
 		}
 
@@ -421,8 +498,8 @@ void XDecayTreeKinematicFit::produce(edm::Event& iEvent, const edm::EventSetup& 
 		
 		XCompCandRefitColl->push_back(patX);
 		validX++;
-		std::cout<<">>>>> We got 1 X candidate! <<<<<"<<std::endl;
-		candidates++;
+		std::cout<<">>>>> We got 1 charged X candidate! <<<<<"<<std::endl;
+		X_fitted_candidates++;
 	}
   }  
     
@@ -440,7 +517,8 @@ void XDecayTreeKinematicFit::produce(edm::Event& iEvent, const edm::EventSetup& 
   //XDecayTreeKinematicFit::GreaterByVProb<pat::CompositeCandidate> vPComparator;
   //std::sort(XCompCandRefitColl->begin(),XCompCandRefitColl->end(), vPComparator);
 
-  iEvent.put(std::move(XCompCandRefitColl),product_name_); 
+  iEvent.put(std::move(chicCompCandRefitColl),chi_product_name_); 
+  iEvent.put(std::move(XCompCandRefitColl),X_product_name_); 
   
 }
 
@@ -472,11 +550,12 @@ bool XDecayTreeKinematicFit::IsTheSameEle(const reco::Candidate& tk1, const reco
 }
 
 void XDecayTreeKinematicFit::endJob(){
-  std::cout << "###########################" << std::endl;
+  std::cout << "-------------------------------" << std::endl;
   std::cout << "X DecayTree Kinematic Fit report:" << std::endl;
-  std::cout << "###########################" << std::endl;
-  std::cout << "Found " << candidates << " fitted X candidates." << std::endl;
-  std::cout << "###########################" << std::endl;
+  std::cout << "-------------------------------" << std::endl;
+  std::cout << "Found " << chi_fitted_candidates << " fitted chi candidates from 3-track fit" << std::endl;
+  std::cout << "Found " << X_fitted_candidates << " fitted X candidates from 4-track fit" << std::endl;
+  std::cout << "-------------------------------" << std::endl;
 }
 
 //define this as a plug-in
