@@ -48,6 +48,7 @@ class chicRootupler:public edm::EDAnalyzer {
         edm::EDGetTokenT<pat::CompositeCandidateCollection> chi_;
         edm::EDGetTokenT<pat::CompositeCandidateCollection> meson_nS_;
         edm::EDGetTokenT<pat::CompositeCandidateCollection> refit1P_;
+		edm::EDGetTokenT<pat::CompositeCandidateCollection> X_;
 		edm::EDGetTokenT<pat::CompositeCandidateCollection> refitX_;
         edm::EDGetTokenT<reco::VertexCollection>            primaryVertices_;
         edm::EDGetTokenT<edm::TriggerResults>               triggerResults_;
@@ -102,12 +103,24 @@ class chicRootupler:public edm::EDAnalyzer {
 		std::vector<Double_t> rf1P_chi_mass_arr;
         std::vector<Double_t> probFit1P_arr;
 		
+		//For X Cand, since info for chi is already stored, only need to store the track info and X cand info 
+		std::vector<Double_t> X_pt_arr;
+		std::vector<Double_t> X_eta_arr;
+		std::vector<Double_t> X_phi_arr;
+		std::vector<Double_t> X_mass_arr;
+		std::vector<Double_t> trk_pt_arr;
+		std::vector<Double_t> trk_eta_arr;
+		std::vector<Double_t> trk_phi_arr;
+		std::vector<Double_t> trk_e_arr;
+		std::vector<Double_t> X_index_arr;
+		
 		//For fitted X
 		std::vector<Double_t> rfX_pt_arr;
 		std::vector<Double_t> rfX_eta_arr;
 		std::vector<Double_t> rfX_phi_arr;
 		std::vector<Double_t> rfX_mass_arr;
         std::vector<Double_t> probFitX_arr;
+		std::vector<Double_t> rfX_index_arr;
 		
 		//MC
 		TLorentzVector gen_X_p4;
@@ -132,6 +145,7 @@ chicRootupler::chicRootupler(const edm::ParameterSet & iConfig):
     chi_(consumes<pat::CompositeCandidateCollection>(iConfig.getParameter < edm::InputTag > ("chi_cand"))),
     meson_nS_(consumes<pat::CompositeCandidateCollection>(iConfig.getParameter < edm::InputTag > ("meson_nS_cand"))),
     refit1P_(consumes<pat::CompositeCandidateCollection>(iConfig.getParameter < edm::InputTag > ("refit1P"))),
+	X_(consumes<pat::CompositeCandidateCollection>(iConfig.getParameter < edm::InputTag > ("X_cand"))),
 	refitX_(consumes<pat::CompositeCandidateCollection>(iConfig.getParameter < edm::InputTag > ("refitX"))),
     primaryVertices_(consumes<reco::VertexCollection>(iConfig.getParameter < edm::InputTag > ("primaryVertices"))),
     triggerResults_(consumes<edm::TriggerResults>(iConfig.getParameter < edm::InputTag > ("TriggerResults"))), 
@@ -183,11 +197,22 @@ chicRootupler::chicRootupler(const edm::ParameterSet & iConfig):
 	chi_tree->Branch("rf1P_chi_mass",      &rf1P_chi_mass_arr);
     chi_tree->Branch("probFit1P",          &probFit1P_arr);
 	
+	chi_tree->Branch("trk_pt",             &trk_pt_arr);
+	chi_tree->Branch("trk_eta",            &trk_eta_arr);
+	chi_tree->Branch("trk_phi",            &trk_phi_arr);
+	chi_tree->Branch("trk_e",              &trk_e_arr);
+	chi_tree->Branch("X_pt",               &X_pt_arr);
+	chi_tree->Branch("X_eta",              &X_eta_arr);
+	chi_tree->Branch("X_phi",              &X_phi_arr);
+	chi_tree->Branch("X_mass",             &X_mass_arr);
+	chi_tree->Branch("X_index",            &X_index_arr);
+	
 	chi_tree->Branch("rfX_pt",             &rfX_pt_arr);
 	chi_tree->Branch("rfX_eta",            &rfX_eta_arr);
 	chi_tree->Branch("rfX_phi",            &rfX_phi_arr);
 	chi_tree->Branch("rfX_mass",           &rfX_mass_arr);
     chi_tree->Branch("probFitX",           &probFitX_arr);
+	chi_tree->Branch("rfX_index",          &rfX_index_arr);
 
     if (isMC_) {
 	   chi_tree->Branch("gen_X_p4",        &gen_X_p4);
@@ -226,6 +251,9 @@ void chicRootupler::analyze(const edm::Event & iEvent, const edm::EventSetup & i
 
   edm::Handle < pat::CompositeCandidateCollection >refit1P_handle;
   iEvent.getByToken(refit1P_, refit1P_handle);
+  
+  edm::Handle < pat::CompositeCandidateCollection >X_handle;
+  iEvent.getByToken(X_, X_handle);
   
   edm::Handle < pat::CompositeCandidateCollection >refitX_handle;
   iEvent.getByToken(refitX_, refitX_handle);
@@ -379,11 +407,21 @@ void chicRootupler::analyze(const edm::Event & iEvent, const edm::EventSetup & i
 	rf1P_chi_phi_arr.clear();
 	rf1P_chi_mass_arr.clear();
 	probFit1P_arr.clear();
+	trk_pt_arr.clear();
+	trk_eta_arr.clear();
+	trk_phi_arr.clear();
+	trk_e_arr.clear();
+	X_pt_arr.clear();
+	X_eta_arr.clear();
+	X_phi_arr.clear();
+	X_mass_arr.clear();
+	X_index_arr.clear();
 	rfX_pt_arr.clear();
 	rfX_eta_arr.clear();
 	rfX_phi_arr.clear();
 	rfX_mass_arr.clear();
 	probFitX_arr.clear();
+	rfX_index_arr.clear();
 	
 	bool bestCandidateOnly_ = false;
     // Accessing X_cand information (made of the prefit chi_cand and the selected track (pion)) when using chi_cand as a reference (i.e., a chi_cand corresponds to a X_cand) in a single event
@@ -476,12 +514,40 @@ void chicRootupler::analyze(const edm::Event & iEvent, const edm::EventSetup & i
 				}
 			}
 		}
-		else{
+		else{ //if current chi_cand did not pass the kinematic fit
 			rf1P_chi_pt_arr.push_back(0);
 			rf1P_chi_eta_arr.push_back(0);
 			rf1P_chi_phi_arr.push_back(0);
 			rf1P_chi_mass_arr.push_back(0);
 			probFit1P_arr.push_back(0);
+		}
+		
+		if(X_handle.isValid() && !X_handle->empty()){
+			for(unsigned int prefit_i = 0; prefit_i < X_handle->size(); prefit_i++){
+				pat::CompositeCandidate X_cand = X_handle->at(prefit_i);
+				if(X_cand.userInt("Index") == int(i)){ //matching the corresponding X cand, if any
+					X_pt_arr.push_back(X_cand.pt());
+					X_eta_arr.push_back(X_cand.eta());
+					X_phi_arr.push_back(X_cand.phi());
+					X_mass_arr.push_back(X_cand.mass());
+					trk_pt_arr.push_back(X_cand.daughter("pionpm")->pt());
+					trk_eta_arr.push_back(X_cand.daughter("pionpm")->eta());
+					trk_phi_arr.push_back(X_cand.daughter("pionpm")->phi());
+					trk_e_arr.push_back(X_cand.daughter("pionpm")->energy());
+					X_index_arr.push_back(i);
+				}
+			}
+		}
+		else{
+			trk_pt_arr.push_back(0);
+			trk_eta_arr.push_back(0);
+			trk_phi_arr.push_back(0);
+			trk_e_arr.push_back(0);
+			X_pt_arr.push_back(0);
+			X_eta_arr.push_back(0);
+			X_phi_arr.push_back(0);
+			X_mass_arr.push_back(0);
+			X_index_arr.push_back(i);
 		}
 
 		if(refitX_handle.isValid() && !refitX_handle->empty()){
@@ -493,14 +559,18 @@ void chicRootupler::analyze(const edm::Event & iEvent, const edm::EventSetup & i
 					rfX_phi_arr.push_back(Xfitted.phi());
 					rfX_mass_arr.push_back(Xfitted.mass());
 					probFitX_arr.push_back(Xfitted.userFloat("vProb"));
+					rfX_index_arr.push_back(i);
 				}
 			}
 		}
-		rfX_pt_arr.push_back(0);
-		rfX_eta_arr.push_back(0);
-		rfX_phi_arr.push_back(0);
-		rfX_mass_arr.push_back(0);
-		probFitX_arr.push_back(0);
+		else{
+			rfX_pt_arr.push_back(0);
+			rfX_eta_arr.push_back(0);
+			rfX_phi_arr.push_back(0);
+			rfX_mass_arr.push_back(0);
+			probFitX_arr.push_back(0);
+			rfX_index_arr.push_back(i);
+		}
 
       }	// for i on chi_cand_handle
     } 

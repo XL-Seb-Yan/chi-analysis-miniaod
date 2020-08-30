@@ -15,7 +15,7 @@ process.GlobalTag = GlobalTag(process.GlobalTag, '102X_dataRun2_v13', '')
 process.load("FWCore.MessageLogger.MessageLogger_cfi")
 process.MessageLogger.cerr.FwkReport.reportEvery = 10000
 
-process.maxEvents = cms.untracked.PSet(input = cms.untracked.int32(-1))
+process.maxEvents = cms.untracked.PSet(input = cms.untracked.int32(10000))
 process.source = cms.Source("PoolSource",fileNames = cms.untracked.vstring(
 '/store/data/Run2018A/Charmonium/MINIAOD/12Nov2019_UL2018_rsb-v1/50000/2FF05A98-9A5F-5C45-840D-1374AA7AB5F6.root',
 '/store/data/Run2018A/Charmonium/MINIAOD/12Nov2019_UL2018_rsb-v1/50000/2BCED88A-F4AA-F546-B61F-ED3CF29421EF.root',
@@ -128,7 +128,7 @@ process.chiProducer = cms.EDProducer('OniaPhotonProducer',
     conversions     = cms.InputTag("oniaPhotonCandidates","conversions"),
     dimuons         = cms.InputTag("Onia2MuMuFiltered"),
     pi0OnlineSwitch = cms.bool(False),
-    deltaMass       = cms.vdouble(0.0,2.0),
+    deltaMass       = cms.vdouble(0.0,2.0), #mass diff between dimuon and chi_cand
     dzmax           = cms.double(0.5),
     triggerMatch    = cms.bool(False)  # trigger match is performed in Onia2MuMuFiltered
 )
@@ -146,7 +146,10 @@ process.XFitter = cms.EDProducer('XDecayTreeKinematicFit',
                           track = cms.InputTag("packedPFCandidates"),
                           meson_nS_mass = cms.double(3.0969), # GeV  J/psi(1S)=3.0969
                           chi_product_name = cms.string("Chic"),
-                          X_product_name = cms.string("XCharged"), # means we are looking for charged partner of X3872
+                          deltaMass = cms.double(0.3), # mass different between X_cand and X3872
+                          dzmax = cms.double(0.5),
+                          XCand_product_name = cms.string("XChargedCand"), # product name for X cand
+                          X_product_name = cms.string("XCharged"), # product name for fitted X
                           is_Debug = cms.bool(False)
                          )
 
@@ -166,6 +169,7 @@ process.rootuple = cms.EDAnalyzer('chicRootupler',
                           chi_cand = cms.InputTag("chiProducer"),
                           meson_nS_cand = cms.InputTag("Onia2MuMuFiltered"),
                           refit1P  = cms.InputTag("XFitter","Chic"),
+                          X_cand  = cms.InputTag("XFitter","XChargedCand"),
                           refitX  = cms.InputTag("XFitter","XCharged"),
                           primaryVertices = cms.InputTag("offlineSlimmedPrimaryVertices"),
                           TriggerResults  = cms.InputTag("TriggerResults", "", "HLT"),
