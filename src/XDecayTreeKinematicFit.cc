@@ -335,7 +335,7 @@ void XDecayTreeKinematicFit::produce(edm::Event& iEvent, const edm::EventSetup& 
 	int trk_index = -1;
 	for (std::vector<pat::PackedCandidate>::const_iterator iTrack = trackHandle->begin(); iTrack != trackHandle->end(); ++iTrack){ //pair the fitted chi_c with a track
 		trk_index++;
-		//quality cuts track
+		//quality cuts track, charged
 		if (iTrack->charge() == 0) continue;
 		if (fabs(iTrack->pdgId()) != 211) continue;
 		if (iTrack->pt() < 0.6) continue;
@@ -349,7 +349,7 @@ void XDecayTreeKinematicFit::produce(edm::Event& iEvent, const edm::EventSetup& 
 		if (IsTheSameMu(*iTrack,mu0) || IsTheSameMu(*iTrack,mu1) ) continue;
 		if (IsTheSameEle(*iTrack,tk0) || IsTheSameEle(*iTrack,tk1) ) continue;
 
-		const ParticleMass pionpmMass(0.1395704); //Assuming this track is a charged pion
+		const ParticleMass pionpmMass(0.1395704); //Assuming this track is a charged pion n: 0.1349766 pm: 0.1395704
 		float pionpmSigma = pionpmMass*1E-6;
 
 		// Do a simple check of chi+pion invariant mass before kinematic fit
