@@ -102,6 +102,7 @@ class chicRootupler:public edm::EDAnalyzer {
 		std::vector<Double_t> rf1P_chi_phi_arr;
 		std::vector<Double_t> rf1P_chi_mass_arr;
         std::vector<Double_t> probFit1P_arr;
+		std::vector<Int_t> rf1P_chi_index_arr;
 		
 		//For X Cand, since info for chi is already stored, only need to store the track info and X cand info 
 		std::vector<Double_t> X_pt_arr;
@@ -112,7 +113,7 @@ class chicRootupler:public edm::EDAnalyzer {
 		std::vector<Double_t> trk_eta_arr;
 		std::vector<Double_t> trk_phi_arr;
 		std::vector<Double_t> trk_e_arr;
-		std::vector<Double_t> X_index_arr;
+		std::vector<Int_t> X_index_arr;
 		
 		//For fitted X
 		std::vector<Double_t> rfX_pt_arr;
@@ -120,7 +121,7 @@ class chicRootupler:public edm::EDAnalyzer {
 		std::vector<Double_t> rfX_phi_arr;
 		std::vector<Double_t> rfX_mass_arr;
         std::vector<Double_t> probFitX_arr;
-		std::vector<Double_t> rfX_index_arr;
+		std::vector<Int_t> rfX_index_arr;
 		
 		//MC
 		TLorentzVector gen_X_p4;
@@ -196,6 +197,7 @@ chicRootupler::chicRootupler(const edm::ParameterSet & iConfig):
 	chi_tree->Branch("rf1P_chi_phi",       &rf1P_chi_phi_arr);
 	chi_tree->Branch("rf1P_chi_mass",      &rf1P_chi_mass_arr);
     chi_tree->Branch("probFit1P",          &probFit1P_arr);
+	chi_tree->Branch("rf1P_chi_index",     &rf1P_chi_index_arr);
 	
 	chi_tree->Branch("trk_pt",             &trk_pt_arr);
 	chi_tree->Branch("trk_eta",            &trk_eta_arr);
@@ -407,6 +409,7 @@ void chicRootupler::analyze(const edm::Event & iEvent, const edm::EventSetup & i
 	rf1P_chi_phi_arr.clear();
 	rf1P_chi_mass_arr.clear();
 	probFit1P_arr.clear();
+	rf1P_chi_index_arr.clear();
 	trk_pt_arr.clear();
 	trk_eta_arr.clear();
 	trk_phi_arr.clear();
@@ -511,16 +514,18 @@ void chicRootupler::analyze(const edm::Event & iEvent, const edm::EventSetup & i
 					rf1P_chi_phi_arr.push_back(chifitted.phi());
 					rf1P_chi_mass_arr.push_back(chifitted.mass());
 					probFit1P_arr.push_back(chifitted.userFloat("vProb"));
+					rf1P_chi_index_arr.push_back(i);
 				}
 			}
 		}
-		else{ //if current chi_cand did not pass the kinematic fit
-			rf1P_chi_pt_arr.push_back(0);
-			rf1P_chi_eta_arr.push_back(0);
-			rf1P_chi_phi_arr.push_back(0);
-			rf1P_chi_mass_arr.push_back(0);
-			probFit1P_arr.push_back(0);
-		}
+		// else{ //if current chi_cand did not pass the kinematic fit   //seems there is no need to push a dummy entry if current candidate failed the fit, as the index can be retrieved from the userInt
+			// rf1P_chi_pt_arr.push_back(0);
+			// rf1P_chi_eta_arr.push_back(0);
+			// rf1P_chi_phi_arr.push_back(0);
+			// rf1P_chi_mass_arr.push_back(0);
+			// probFit1P_arr.push_back(0);
+			// rf1P_chi_index_arr.push_back(i)
+		// }
 		
 		if(X_handle.isValid() && !X_handle->empty()){
 			for(unsigned int prefit_i = 0; prefit_i < X_handle->size(); prefit_i++){
@@ -538,17 +543,17 @@ void chicRootupler::analyze(const edm::Event & iEvent, const edm::EventSetup & i
 				}
 			}
 		}
-		else{
-			trk_pt_arr.push_back(0);
-			trk_eta_arr.push_back(0);
-			trk_phi_arr.push_back(0);
-			trk_e_arr.push_back(0);
-			X_pt_arr.push_back(0);
-			X_eta_arr.push_back(0);
-			X_phi_arr.push_back(0);
-			X_mass_arr.push_back(0);
-			X_index_arr.push_back(i);
-		}
+		// else{
+			// trk_pt_arr.push_back(0);
+			// trk_eta_arr.push_back(0);
+			// trk_phi_arr.push_back(0);
+			// trk_e_arr.push_back(0);
+			// X_pt_arr.push_back(0);
+			// X_eta_arr.push_back(0);
+			// X_phi_arr.push_back(0);
+			// X_mass_arr.push_back(0);
+			// X_index_arr.push_back(i);
+		// }
 
 		if(refitX_handle.isValid() && !refitX_handle->empty()){
 			for(unsigned int refit_i = 0; refit_i < refitX_handle->size(); refit_i++){
@@ -563,14 +568,14 @@ void chicRootupler::analyze(const edm::Event & iEvent, const edm::EventSetup & i
 				}
 			}
 		}
-		else{
-			rfX_pt_arr.push_back(0);
-			rfX_eta_arr.push_back(0);
-			rfX_phi_arr.push_back(0);
-			rfX_mass_arr.push_back(0);
-			probFitX_arr.push_back(0);
-			rfX_index_arr.push_back(i);
-		}
+		// else{
+			// rfX_pt_arr.push_back(0);
+			// rfX_eta_arr.push_back(0);
+			// rfX_phi_arr.push_back(0);
+			// rfX_mass_arr.push_back(0);
+			// probFitX_arr.push_back(0);
+			// rfX_index_arr.push_back(i);
+		// }
 
       }	// for i on chi_cand_handle
     } 

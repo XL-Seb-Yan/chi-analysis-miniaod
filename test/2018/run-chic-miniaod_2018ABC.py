@@ -15,7 +15,7 @@ process.GlobalTag = GlobalTag(process.GlobalTag, '102X_dataRun2_v13', '')
 process.load("FWCore.MessageLogger.MessageLogger_cfi")
 process.MessageLogger.cerr.FwkReport.reportEvery = 10000
 
-process.maxEvents = cms.untracked.PSet(input = cms.untracked.int32(-1))
+process.maxEvents = cms.untracked.PSet(input = cms.untracked.int32(100000))
 process.source = cms.Source("PoolSource",fileNames = cms.untracked.vstring(
 '/store/data/Run2018A/Charmonium/MINIAOD/12Nov2019_UL2018_rsb-v1/50000/2FF05A98-9A5F-5C45-840D-1374AA7AB5F6.root',
 '/store/data/Run2018A/Charmonium/MINIAOD/12Nov2019_UL2018_rsb-v1/50000/2BCED88A-F4AA-F546-B61F-ED3CF29421EF.root',

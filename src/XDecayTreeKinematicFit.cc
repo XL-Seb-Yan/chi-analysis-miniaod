@@ -323,6 +323,7 @@ void XDecayTreeKinematicFit::produce(edm::Event& iEvent, const edm::EventSetup& 
 
 	patChi_3trkfit.addDaughter(meson_1S_3trkfit,"dimuon");
 	patChi_3trkfit.addDaughter(patGamma_3trkfit,"photon");
+	patChi_3trkfit.addUserInt("Index",indexChiCand);  // this also holds the index of the current chiCand
 
 	chicCompCandRefitColl->push_back(patChi_3trkfit);	
 	
