@@ -85,6 +85,7 @@ class XDecayTreeKinematicFit : public edm::EDProducer {
 	
 	double deltaMass_;
 	double dzMax_;
+	double deltaR_pi_;
 	
 	int chi_fitted_candidates;
 	int X_candidates;
@@ -112,6 +113,7 @@ XDecayTreeKinematicFit::XDecayTreeKinematicFit(const edm::ParameterSet& iConfig)
   chi_product_name_   = iConfig.getParameter<std::string>("chi_product_name");
   deltaMass_ = iConfig.getParameter<double>("deltaMass"),
   dzMax_ = iConfig.getParameter<double>("dzmax"),
+  deltaR_pi_ = iConfig.getParameter<double>("deltaR_pi"),
   XCand_product_name_   = iConfig.getParameter<std::string>("XCand_product_name");
   X_product_name_   = iConfig.getParameter<std::string>("X_product_name");
   produces<pat::CompositeCandidateCollection>(chi_product_name_);
@@ -261,6 +263,11 @@ void XDecayTreeKinematicFit::produce(edm::Event& iEvent, const edm::EventSetup& 
 	pat::CompositeCandidate patChi_3trkfit(recoChi_3trkfit);
 	patChi_3trkfit.addUserFloat("vProb",ChiVtxP_fit);
 	patChi_3trkfit.addUserInt("Index",indexChiCand);  // this also holds the index of the current chiCand
+	TLorentzVector rf_chi_p4;
+	rf_chi_p4.SetXYZM(fitChi->currentState().kinematicParameters().momentum().x(),
+						fitChi->currentState().kinematicParameters().momentum().y(),
+						fitChi->currentState().kinematicParameters().momentum().z(),
+						fitChi->currentState().mass());
 
 	//get first muon
 	bool child = ChiTree->movePointerToTheFirstChild();
@@ -343,7 +350,12 @@ void XDecayTreeKinematicFit::produce(edm::Event& iEvent, const edm::EventSetup& 
 		if (!(iTrack->trackHighPurity())) continue;
 		if (iTrack->numberOfPixelHits() < 1) continue;
 		if (iTrack->numberOfHits() < 5) continue;
-
+		TLorentzVector X_prefit_p4;
+		TLorentzVector itrk_p4;
+		itrk_p4.SetPtEtaPhiE(iTrack->pt(),iTrack->eta(),iTrack->phi(),iTrack->energy());
+		X_prefit_p4 = rf_chi_p4 + itrk_p4;
+		if(X_prefit_p4.DeltaR(itrk_p4) > deltaR_pi_) continue;
+		
 		//Now let's checks if the track we are selecting is the muon or conversion electron we already selected
 		const pat::Muon *mu0 = dynamic_cast<const pat::Muon*>(chiCand->daughter("dimuon")->daughter("muon1"));
 		const pat::Muon *mu1 = dynamic_cast<const pat::Muon*>(chiCand->daughter("dimuon")->daughter("muon2"));
@@ -354,16 +366,10 @@ void XDecayTreeKinematicFit::produce(edm::Event& iEvent, const edm::EventSetup& 
 		float pionpmSigma = pionpmMass*1E-6;
 
 		// Do a simple check of chi+pion invariant mass before kinematic fit
-		TLorentzVector chi_p4, pionpm_p4;
-		chi_p4.SetXYZM(fitChi->currentState().kinematicParameters().momentum().x(),
-						fitChi->currentState().kinematicParameters().momentum().y(),
-						fitChi->currentState().kinematicParameters().momentum().z(),
-						fitChi->currentState().mass());
-							
+		TLorentzVector pionpm_p4;
 		pionpm_p4.SetXYZM(iTrack->px(),iTrack->py(),iTrack->pz(),pionpmMass); //track has pion mass
-
-		TLorentzVector X_prefit_p4;
-		X_prefit_p4 = chi_p4 + pionpm_p4;
+		X_prefit_p4 = rf_chi_p4 + pionpm_p4;
+		
 		if(X_prefit_p4.M() < 3.872 - deltaMass_ || X_prefit_p4.M() > 3.872 + deltaMass_) continue;
 		const reco::Candidate::Point& vtx = iTrack->vertex();
 		double dz = (vtx.Z()-ChiVtxZ_fit) - ((vtx.X()-ChiVtxX_fit)*pionpm_p4.X()+(vtx.Y()-ChiVtxY_fit)*pionpm_p4.Y())/pionpm_p4.Rho() * pionpm_p4.Z()/pionpm_p4.Rho();

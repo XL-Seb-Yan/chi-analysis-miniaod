@@ -63,6 +63,10 @@ class chicRootupler:public edm::EDAnalyzer {
         UInt_t    lumiblock;
 		UInt_t    numPrimaryVertices;
 		UInt_t    trigger;
+		Int_t     chi_cand_N;
+		Int_t     chi_fit_N;
+		Int_t     X_cand_N;
+		Int_t     X_fit_N;
 		
 		//For Chi_cand(before kinematic fit)
 		std::vector<Double_t> chi_pt_arr;
@@ -156,11 +160,15 @@ chicRootupler::chicRootupler(const edm::ParameterSet & iConfig):
     edm::Service < TFileService > fs;
     chi_tree = fs->make < TTree > ("chiTree", "Tree of chic");
 
-    chi_tree->Branch("run",                &run,      "run/i");
-    chi_tree->Branch("event",              &event,    "event/l");
-    chi_tree->Branch("lumiblock",          &lumiblock,"lumiblock/i");
-	chi_tree->Branch("numPrimaryVertices", &numPrimaryVertices, "numPrimaryVertices/i");
-    chi_tree->Branch("trigger",            &trigger,            "trigger/i");
+    chi_tree->Branch("run",                &run);
+    chi_tree->Branch("event",              &event);
+    chi_tree->Branch("lumiblock",          &lumiblock);
+	chi_tree->Branch("numPrimaryVertices", &numPrimaryVertices);
+    chi_tree->Branch("trigger",            &trigger);
+	chi_tree->Branch("chi_N",              &chi_cand_N);
+	chi_tree->Branch("rfchi_N",            &chi_fit_N);
+	chi_tree->Branch("X_N",                &X_cand_N);
+	chi_tree->Branch("rfX_N",              &X_fit_N);
 	
 	chi_tree->Branch("chi_pt",             &chi_pt_arr);
 	chi_tree->Branch("chi_eta",            &chi_eta_arr);
@@ -237,7 +245,7 @@ chicRootupler::chicRootupler(const edm::ParameterSet & iConfig):
 
 //Check recursively if any ancestor of particle is the given one
 bool chicRootupler::isAncestor(const reco::Candidate* ancestor, const reco::Candidate * particle) {
-   if (ancestor == particle ) return true;
+   if (ancestor == particle) return true;
    if (particle->numberOfMothers() && isAncestor(ancestor,particle->mother(0))) return true;
    return false;
 }
@@ -425,7 +433,10 @@ void chicRootupler::analyze(const edm::Event & iEvent, const edm::EventSetup & i
 	rfX_mass_arr.clear();
 	probFitX_arr.clear();
 	rfX_index_arr.clear();
-	
+	chi_cand_N = 0;
+	chi_fit_N = 0;
+	X_cand_N = 0;
+	X_fit_N = 0;
 	bool bestCandidateOnly_ = false;
     // Accessing X_cand information (made of the prefit chi_cand and the selected track (pion)) when using chi_cand as a reference (i.e., a chi_cand corresponds to a X_cand) in a single event
     if (chi_cand_handle.isValid() && !chi_cand_handle->empty()) {
@@ -504,6 +515,8 @@ void chicRootupler::analyze(const edm::Event & iEvent, const edm::EventSetup & i
 		dz_arr.push_back(dz);
 		photon_flags_arr.push_back(photon_flags);
 		invm1P_arr.push_back(invm1P);
+		
+		chi_cand_N = invm1P_arr.size();
 
 		if(refit1P_handle.isValid() && !refit1P_handle->empty()){
 			for(unsigned int refit_i = 0; refit_i < refit1P_handle->size(); refit_i++){
@@ -518,6 +531,7 @@ void chicRootupler::analyze(const edm::Event & iEvent, const edm::EventSetup & i
 				}
 			}
 		}
+		chi_fit_N = rf1P_chi_mass_arr.size();
 		// else{ //if current chi_cand did not pass the kinematic fit   //seems there is no need to push a dummy entry if current candidate failed the fit, as the index can be retrieved from the userInt
 			// rf1P_chi_pt_arr.push_back(0);
 			// rf1P_chi_eta_arr.push_back(0);
@@ -543,6 +557,7 @@ void chicRootupler::analyze(const edm::Event & iEvent, const edm::EventSetup & i
 				}
 			}
 		}
+		X_cand_N = X_mass_arr.size();
 		// else{
 			// trk_pt_arr.push_back(0);
 			// trk_eta_arr.push_back(0);
@@ -568,6 +583,7 @@ void chicRootupler::analyze(const edm::Event & iEvent, const edm::EventSetup & i
 				}
 			}
 		}
+		X_fit_N = rfX_mass_arr.size();
 		// else{
 			// rfX_pt_arr.push_back(0);
 			// rfX_eta_arr.push_back(0);

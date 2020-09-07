@@ -148,6 +148,7 @@ process.XFitter = cms.EDProducer('XDecayTreeKinematicFit',
                           chi_product_name = cms.string("Chic"),
                           deltaMass = cms.double(0.3), # mass different between X_cand and X3872
                           dzmax = cms.double(0.5),
+                          deltaR_pi = cms.double(0.7),
                           XCand_product_name = cms.string("XChargedCand"), # product name for X cand
                           X_product_name = cms.string("XCharged"), # product name for fitted X
                           is_Debug = cms.bool(False)
