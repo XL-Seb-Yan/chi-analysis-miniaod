@@ -95,8 +95,8 @@ class chicRootupler:public edm::EDAnalyzer {
 		std::vector<Double_t> ctpv_arr;
 		std::vector<Double_t> ctpv_error_arr;
 		std::vector<Double_t> conv_vertex_arr;
-		std::vector<Double_t> dz_arr;
-		std::vector<UInt_t> photon_flags_arr;
+		std::vector<Double_t> chi_dz_arr;
+		std::vector<UInt_t>   photon_flags_arr;
 		std::vector<Double_t> invm1P_arr;
 		//Double_t meson_1P_nsigma; //This can be access later on with dimuon_p4.Rapidity() and dimuon_p4.M()
 
@@ -196,7 +196,7 @@ chicRootupler::chicRootupler(const edm::ParameterSet & iConfig):
 	chi_tree->Branch("ctpv",               &ctpv_arr);
 	chi_tree->Branch("ctpv_error",         &ctpv_error_arr);
 	chi_tree->Branch("conv_vertex",        &conv_vertex_arr);
-	chi_tree->Branch("dz",                 &dz_arr);
+	chi_tree->Branch("chi_dz",             &chi_dz_arr);
 	chi_tree->Branch("photon_flags",       &photon_flags_arr);
 	chi_tree->Branch("invm1P",             &invm1P_arr);
 	
@@ -409,7 +409,7 @@ void chicRootupler::analyze(const edm::Event & iEvent, const edm::EventSetup & i
 	ctpv_arr.clear();
 	ctpv_error_arr.clear();
 	conv_vertex_arr.clear();
-	dz_arr.clear();
+	chi_dz_arr.clear();
 	photon_flags_arr.clear();
 	invm1P_arr.clear();
 	rf1P_chi_pt_arr.clear();
@@ -512,7 +512,7 @@ void chicRootupler::analyze(const edm::Event & iEvent, const edm::EventSetup & i
 		ctpv_arr.push_back(ctpv);
 		ctpv_error_arr.push_back(ctpv_error);
 		conv_vertex_arr.push_back(conv_vertex);
-		dz_arr.push_back(dz);
+		chi_dz_arr.push_back(dz);
 		photon_flags_arr.push_back(photon_flags);
 		invm1P_arr.push_back(invm1P);
 		

@@ -26,14 +26,23 @@
 #include "FWCore/ParameterSet/interface/ParameterSet.h"
 
 ///For kinematic fit:
+#include <DataFormats/TrackReco/interface/TrackFwd.h>
+#include <DataFormats/TrackReco/interface/Track.h>
+#include <DataFormats/MuonReco/interface/MuonFwd.h>
+#include <DataFormats/MuonReco/interface/Muon.h>
 #include <DataFormats/PatCandidates/interface/Muon.h>
 #include <DataFormats/PatCandidates/interface/CompositeCandidate.h> 
 #include <DataFormats/PatCandidates/interface/PackedCandidate.h>
+#include <DataFormats/Common/interface/View.h>
+#include <DataFormats/HepMCCandidate/interface/GenParticle.h>
+#include <DataFormats/PatCandidates/interface/Muon.h>
+#include <DataFormats/VertexReco/interface/VertexFwd.h>
 
 #include "TrackingTools/TransientTrack/interface/TransientTrackBuilder.h"
 #include "TrackingTools/Records/interface/TransientTrackRecord.h"
 #include "TrackingTools/TransientTrack/interface/TransientTrack.h"
-#include "MagneticField/Engine/interface/MagneticField.h"            
+#include "MagneticField/Engine/interface/MagneticField.h"    
+#include "MagneticField/Records/interface/IdealMagneticFieldRecord.h"        
 #include "CommonTools/Statistics/interface/ChiSquaredProbability.h"
 
 #include "RecoVertex/KinematicFit/interface/KinematicParticleVertexFitter.h"
@@ -46,6 +55,10 @@
 #include "RecoVertex/KinematicFitPrimitives/interface/KinematicParticle.h"
 #include "RecoVertex/KinematicFitPrimitives/interface/RefCountedKinematicParticle.h"
 #include "RecoVertex/KinematicFitPrimitives/interface/TransientTrackKinematicParticle.h"
+#include "RecoVertex/VertexTools/interface/VertexDistanceXY.h"
+#include "TrackingTools/PatternTools/interface/TwoTrackMinimumDistance.h"
+#include "TrackingTools/IPTools/interface/IPTools.h"
+#include "TrackingTools/PatternTools/interface/ClosestApproachInRPhi.h"
 
 #include "TFile.h"
 #include "TTree.h"
@@ -54,6 +67,9 @@
 #include "TLorentzVector.h"
 #include <utility>
 #include <string>
+#include "TMath.h"
+#include "Math/VectorUtil.h"
+#include "TVector3.h"
 
 #include <boost/foreach.hpp>
 #include <string>
@@ -77,11 +93,15 @@ class XDecayTreeKinematicFit : public edm::EDProducer {
 	edm::EDGetTokenT<pat::CompositeCandidateCollection> chi_Label;
 	edm::EDGetTokenT<pat::CompositeCandidateCollection> meson_nS_Label;
 	edm::EDGetTokenT<std::vector<pat::PackedCandidate>> track_Label; //only work if it is std::vector<pat::PackedCandidate>...
+	edm::EDGetTokenT<reco::BeamSpot> thebeamspot_;
+	edm::EDGetTokenT<reco::VertexCollection> thePVs_;
+
     double meson_nS_mass_;
 	std::string chi_product_name_;
 	std::string XCand_product_name_;
     std::string X_product_name_;
 	bool isDebug_;
+	bool resolvePVAmbiguity_;
 	
 	double deltaMass_;
 	double dzMax_;
@@ -108,18 +128,22 @@ class XDecayTreeKinematicFit : public edm::EDProducer {
 XDecayTreeKinematicFit::XDecayTreeKinematicFit(const edm::ParameterSet& iConfig) {
   chi_Label       = consumes<pat::CompositeCandidateCollection>(iConfig.getParameter< edm::InputTag>("chi_cand"));
   meson_nS_Label  = consumes<pat::CompositeCandidateCollection>(iConfig.getParameter< edm::InputTag>("meson_nS_cand"));
-  track_Label     = consumes<std::vector<pat::PackedCandidate>>(iConfig.getParameter< edm::InputTag>("track")),
-  meson_nS_mass_  = iConfig.getParameter<double>("meson_nS_mass");
+  track_Label     = consumes<std::vector<pat::PackedCandidate>>(iConfig.getParameter< edm::InputTag>("track"));
+  thebeamspot_    = consumes<reco::BeamSpot>(iConfig.getParameter<edm::InputTag>("beamSpotTag")),
+  thePVs_         = consumes<reco::VertexCollection>(iConfig.getParameter< edm::InputTag>("primaryVertexTag")),
+  
+  meson_nS_mass_      = iConfig.getParameter<double>("meson_nS_mass");
   chi_product_name_   = iConfig.getParameter<std::string>("chi_product_name");
-  deltaMass_ = iConfig.getParameter<double>("deltaMass"),
-  dzMax_ = iConfig.getParameter<double>("dzmax"),
-  deltaR_pi_ = iConfig.getParameter<double>("deltaR_pi"),
-  XCand_product_name_   = iConfig.getParameter<std::string>("XCand_product_name");
-  X_product_name_   = iConfig.getParameter<std::string>("X_product_name");
+  deltaMass_          = iConfig.getParameter<double>("deltaMass"),
+  dzMax_              = iConfig.getParameter<double>("dzmax"),
+  deltaR_pi_          = iConfig.getParameter<double>("deltaR_pi"),
+  XCand_product_name_ = iConfig.getParameter<std::string>("XCand_product_name");
+  X_product_name_     = iConfig.getParameter<std::string>("X_product_name");
   produces<pat::CompositeCandidateCollection>(chi_product_name_);
   produces<pat::CompositeCandidateCollection>(XCand_product_name_);
   produces<pat::CompositeCandidateCollection>(X_product_name_);
   isDebug_ = iConfig.getParameter<bool>("is_Debug");
+  resolvePVAmbiguity_ = iConfig.getParameter<bool>("resolvePVAmbiguity");
   chi_fitted_candidates = 0;
   X_candidates = 0;
   X_fitted_candidates = 0;
@@ -133,6 +157,24 @@ void XDecayTreeKinematicFit::produce(edm::Event& iEvent, const edm::EventSetup& 
   // Grab parameters
   edm::Handle<pat::CompositeCandidateCollection> chiCandHandle;
   iEvent.getByToken(chi_Label, chiCandHandle);
+  
+  edm::ESHandle<MagneticField> magneticField;
+  iSetup.get<IdealMagneticFieldRecord>().get(magneticField);
+  const MagneticField* field = magneticField.product();
+  
+  reco::Vertex theBeamSpotV;
+  edm::Handle<reco::BeamSpot> theBeamSpot;
+  iEvent.getByToken(thebeamspot_,theBeamSpot);
+  reco::BeamSpot bs = *theBeamSpot;
+  theBeamSpotV = reco::Vertex(bs.position(), bs.covariance3D());
+  
+  reco::Vertex thePrimaryV;
+  edm::Handle<reco::VertexCollection> priVtxs;
+  iEvent.getByToken(thePVs_, priVtxs);
+  // if(priVtxs->begin() != priVtxs->end())
+    // thePrimaryV = reco::Vertex(*(priVtxs->begin()));
+  // else
+    // thePrimaryV = reco::Vertex(bs.position(), bs.covariance3D());
   
   //Kinematic refit collection
   std::unique_ptr<pat::CompositeCandidateCollection> chicCompCandRefitColl(new pat::CompositeCandidateCollection);
@@ -264,11 +306,7 @@ void XDecayTreeKinematicFit::produce(edm::Event& iEvent, const edm::EventSetup& 
 	patChi_3trkfit.addUserFloat("vProb",ChiVtxP_fit);
 	patChi_3trkfit.addUserInt("Index",indexChiCand);  // this also holds the index of the current chiCand
 	TLorentzVector rf_chi_p4;
-	rf_chi_p4.SetXYZM(fitChi->currentState().kinematicParameters().momentum().x(),
-						fitChi->currentState().kinematicParameters().momentum().y(),
-						fitChi->currentState().kinematicParameters().momentum().z(),
-						fitChi->currentState().mass());
-
+	rf_chi_p4.SetXYZM(ChiPx_fit,ChiPx_fit,ChiPx_fit,ChiM_fit);																		   
 	//get first muon
 	bool child = ChiTree->movePointerToTheFirstChild();
 	RefCountedKinematicParticle fitMu1_3trkfit = ChiTree->currentParticle();
@@ -340,6 +378,27 @@ void XDecayTreeKinematicFit::produce(edm::Event& iEvent, const edm::EventSetup& 
 	edm::Handle<std::vector<pat::PackedCandidate>> trackHandle;
 	iEvent.getByToken(track_Label, trackHandle);
 
+	//locate the PV, see https://twiki.cern.ch/twiki/bin/view/CMSPublic/SWGuideOnia2MuMuPAT
+	const reco::Vertex *dimu_vertex = dynamic_cast<const pat::CompositeCandidate*>(chiCand->daughter("dimuon"))->userData<reco::Vertex>("commonVertex");
+	reco::Candidate::LorentzVector dimu_p4 = dynamic_cast<const pat::CompositeCandidate*>(chiCand->daughter("dimuon"))->p4();
+	unsigned int dimu_PV_index = 0; //default PV is the first one in PV collection -> highest pt sum
+	if(resolvePVAmbiguity_){
+		float minDz = 999999;
+		TwoTrackMinimumDistance ttmd;
+		bool status = ttmd.calculate(GlobalTrajectoryParameters(GlobalPoint(dimu_vertex->position().x(), dimu_vertex->position().y(), dimu_vertex->position().z()),GlobalVector(dimu_p4.px(),dimu_p4.py(),dimu_p4.pz()),TrackCharge(0),&(*magneticField)), GlobalTrajectoryParameters(GlobalPoint(bs.position().x(), bs.position().y(), bs.position().z()),GlobalVector(bs.dxdz(), bs.dydz(), 1),TrackCharge(0),&(*magneticField)));
+		float extrapZ = -9E20;
+		if(status) 
+			extrapZ=ttmd.points().first.z();
+		for(unsigned int ipv=0; ipv<priVtxs->size(); ipv++){
+			float deltaZ = fabs(extrapZ - priVtxs->at(ipv).position().z()) ;
+			if (deltaZ < minDz){
+				minDz = deltaZ;    
+				dimu_PV_index = ipv;
+			}
+		}
+	}
+	const reco::Vertex dimu_PV = priVtxs->at(dimu_PV_index); //the PV which closest to J/psi in dz becomes the selected PV
+
 	int trk_index = -1;
 	for (std::vector<pat::PackedCandidate>::const_iterator iTrack = trackHandle->begin(); iTrack != trackHandle->end(); ++iTrack){ //pair the fitted chi_c with a track
 		trk_index++;
@@ -355,6 +414,7 @@ void XDecayTreeKinematicFit::produce(edm::Event& iEvent, const edm::EventSetup& 
 		itrk_p4.SetPtEtaPhiE(iTrack->pt(),iTrack->eta(),iTrack->phi(),iTrack->energy());
 		X_prefit_p4 = rf_chi_p4 + itrk_p4;
 		if(X_prefit_p4.DeltaR(itrk_p4) > deltaR_pi_) continue;
+		int pion_charge = iTrack->charge();
 		
 		//Now let's checks if the track we are selecting is the muon or conversion electron we already selected
 		const pat::Muon *mu0 = dynamic_cast<const pat::Muon*>(chiCand->daughter("dimuon")->daughter("muon1"));
@@ -369,22 +429,58 @@ void XDecayTreeKinematicFit::produce(edm::Event& iEvent, const edm::EventSetup& 
 		TLorentzVector pionpm_p4;
 		pionpm_p4.SetXYZM(iTrack->px(),iTrack->py(),iTrack->pz(),pionpmMass); //track has pion mass
 		X_prefit_p4 = rf_chi_p4 + pionpm_p4;
-		
 		if(X_prefit_p4.M() < 3.872 - deltaMass_ || X_prefit_p4.M() > 3.872 + deltaMass_) continue;
-		const reco::Candidate::Point& vtx = iTrack->vertex();
-		double dz = (vtx.Z()-ChiVtxZ_fit) - ((vtx.X()-ChiVtxX_fit)*pionpm_p4.X()+(vtx.Y()-ChiVtxY_fit)*pionpm_p4.Y())/pionpm_p4.Rho() * pionpm_p4.Z()/pionpm_p4.Rho();
-		if(dz > dzMax_) continue;
+		double dz = iTrack->dz(reco::Candidate::Point(ChiVtxX_fit, ChiVtxY_fit, ChiVtxZ_fit)); //IP using the fitted chi vertex as a reference
+		
+		//find the index of trk associated PV
+		// unsigned int trk_PV_index = -1;
+		// for (unsigned int ipv=0; ipv<priVtxs->size(); ipv++){
+			// if(fabs(priVtxs->at(ipv).x()-iTrack->vertexRef()->x()) < 0.002 && fabs(priVtxs->at(ipv).y()-iTrack->vertexRef()->y()) < 0.002 && fabs(priVtxs->at(ipv).z()-iTrack->vertexRef()->z()) < 0.002){//simple vertex matching
+				// trk_PV_index = ipv;
+				// break;
+			// }
+		// }
+		// if(trk_PV_index != dimu_PV_index) continue;
+		
+		//make sure track comes from the same vertex, results are the same as above
+		if(fabs(iTrack->vertexRef()->x()-dimu_PV.x()) > 0.002 || fabs(iTrack->vertexRef()->y()-dimu_PV.y()) > 0.002 || fabs(iTrack->vertexRef()->z()-dimu_PV.z()) > 0.002)
+			continue;
+		if(iTrack->fromPV() < 1) //track association to the vertexRef(), used for isolation calculations, see https://twiki.cern.ch/twiki/bin/view/CMSPublic/WorkBookMiniAOD2017
+			continue;
+		
+		//DCA
+		// TrajectoryStateClosestToPoint chiTS = t_tks[0].impactPointTSCP();
+		// TrajectoryStateClosestToPoint pionTS = t_tks[1].impactPointTSCP();
+		// float dca = 1E20;
+		// if (mu1TS.isValid() && mu2TS.isValid()) {
+			// ClosestApproachInRPhi cApp;
+			// cApp.calculate(mu1TS.theState(), mu2TS.theState());
+		// if (cApp.status() ) dca = cApp.distance();
+		// }
+		// myCand.addUserFloat("DCA", dca );
+		
+		//DCA
+		FreeTrajectoryState chiFTS(GlobalPoint(ChiVtxX_fit, ChiVtxY_fit, ChiVtxZ_fit),GlobalVector(ChiPx_fit,ChiPy_fit,ChiPz_fit),TrackCharge(0),&(*magneticField));
+		FreeTrajectoryState pionFTS(GlobalPoint(iTrack->vertexRef()->x(), iTrack->vertexRef()->y(), iTrack->vertexRef()->z()),GlobalVector(iTrack->px(),iTrack->py(),iTrack->pz()),TrackCharge(pion_charge),&(*magneticField));
+		float dca = 1E20;
+		ClosestApproachInRPhi cApp; //closest approach in the transverse plane
+		cApp.calculate(chiFTS, pionFTS);
+		if(cApp.status())
+			dca = cApp.distance();
 		
 		pat::CompositeCandidate XCand;
 		XCand.addDaughter(*chiCand,"chi");
 		XCand.addDaughter(*iTrack,"pionpm");
 		XCand.addUserInt("Index",indexChiCand);  // this also holds the index of the current chiCand
+		XCand.addUserFloat("dz_chipi",dz);
+		XCand.addUserFloat("DCA_chipi", dca);
+		XCand.addUserFloat("HcalFrac",iTrack->hcalFraction());
+		XCand.addUserInt("isIsoChgHad", iTrack->isIsolatedChargedHadron());
 		reco::Candidate::LorentzVector vX = chiCand->p4() + iTrack->p4();
 		XCand.setP4(vX);
 		XCandCompCandRefitColl->push_back(XCand);	
 		preX++;
 		X_candidates++;
-  
   
 		reco::TransientTrack pionpmTT = (*TTrkBuilder).build(iTrack->pseudoTrack());
 

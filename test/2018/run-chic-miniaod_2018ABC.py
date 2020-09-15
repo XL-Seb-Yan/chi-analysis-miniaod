@@ -15,7 +15,7 @@ process.GlobalTag = GlobalTag(process.GlobalTag, '102X_dataRun2_v13', '')
 process.load("FWCore.MessageLogger.MessageLogger_cfi")
 process.MessageLogger.cerr.FwkReport.reportEvery = 10000
 
-process.maxEvents = cms.untracked.PSet(input = cms.untracked.int32(100000))
+process.maxEvents = cms.untracked.PSet(input = cms.untracked.int32(50000))
 process.source = cms.Source("PoolSource",fileNames = cms.untracked.vstring(
 '/store/data/Run2018A/Charmonium/MINIAOD/12Nov2019_UL2018_rsb-v1/50000/2FF05A98-9A5F-5C45-840D-1374AA7AB5F6.root',
 '/store/data/Run2018A/Charmonium/MINIAOD/12Nov2019_UL2018_rsb-v1/50000/2BCED88A-F4AA-F546-B61F-ED3CF29421EF.root',
@@ -83,6 +83,9 @@ process.onia2MuMuPAT.beamSpotTag=cms.InputTag('offlineBeamSpot')
 process.onia2MuMuPAT.higherPuritySelection=cms.string("")
 process.onia2MuMuPAT.lowerPuritySelection=cms.string("")
 process.onia2MuMuPAT.dimuonSelection=cms.string("2.7 < mass && mass < 3.5")
+process.onia2MuMuPAT.addCommonVertex = cms.bool(True) # false will make common vertex un-accessible, cause segment violation inside chi producer
+process.onia2MuMuPAT.addMuonlessPrimaryVertex = cms.bool(False) # true will make PV un-accessible, cause segment violation inside chi producer
+process.onia2MuMuPAT.resolveAmbiguity = cms.bool(False) #bug?? still resolve the PV even being set to false.. So do this in the X fitter instead
 process.onia2MuMuPAT.addMCTruth = cms.bool(False)
 
 process.Onia2MuMuFiltered = cms.EDProducer('DiMuonFilter',
@@ -129,7 +132,7 @@ process.chiProducer = cms.EDProducer('OniaPhotonProducer',
     dimuons         = cms.InputTag("Onia2MuMuFiltered"),
     pi0OnlineSwitch = cms.bool(False),
     deltaMass       = cms.vdouble(0.0,2.0), #mass diff between dimuon and chi_cand
-    dzmax           = cms.double(0.5),
+    dzmax           = cms.double(0.5), #dz of the photon respect to the fitted dimuon vertex, not
     triggerMatch    = cms.bool(False)  # trigger match is performed in Onia2MuMuFiltered
 )
 
@@ -144,14 +147,17 @@ process.XFitter = cms.EDProducer('XDecayTreeKinematicFit',
                           chi_cand = cms.InputTag("chiProducer"),
                           meson_nS_cand = cms.InputTag("Onia2MuMuFiltered"),
                           track = cms.InputTag("packedPFCandidates"),
+                          primaryVertexTag=cms.InputTag('offlineSlimmedPrimaryVertices'),
+                          beamSpotTag=cms.InputTag('offlineBeamSpot'),
                           meson_nS_mass = cms.double(3.0969), # GeV  J/psi(1S)=3.0969
                           chi_product_name = cms.string("Chic"),
                           deltaMass = cms.double(0.3), # mass different between X_cand and X3872
-                          dzmax = cms.double(0.5),
+                          dzmax = cms.double(0.5), #dz of the pion respect to the fitted chi vertex, not used for now 9.15
                           deltaR_pi = cms.double(0.7),
                           XCand_product_name = cms.string("XChargedCand"), # product name for X cand
                           X_product_name = cms.string("XCharged"), # product name for fitted X
-                          is_Debug = cms.bool(False)
+                          is_Debug = cms.bool(False),
+                          resolvePVAmbiguity = cms.bool(True)
                          )
 
 process.XSequence = cms.Sequence(

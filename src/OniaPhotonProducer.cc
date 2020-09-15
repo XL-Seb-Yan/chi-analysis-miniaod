@@ -42,8 +42,8 @@ void OniaPhotonProducer::produce(edm::Event& event, const edm::EventSetup& esetu
            delta_mass_fail++;
            continue;
         }
-        const reco::Vertex *ipv = dimuonCand->userData<reco::Vertex>("commonVertex");
-        float dz = fabs(Getdz(*conv,ipv->position()));              // onia2mumu stores vertex as userData
+        const reco::Vertex *ivtx = dimuonCand->userData<reco::Vertex>("commonVertex");
+        float dz = fabs(Getdz(*conv,ivtx->position()));              // onia2mumu stores vertex as userData
         chiCand.addUserFloat("dz",dz);
 
         if (!cutdz(dz)){
@@ -91,8 +91,8 @@ const pat::CompositeCandidate OniaPhotonProducer::makeChiCandidate(const pat::Co
   pat::CompositeCandidate chiCand;
   chiCand.addDaughter(dimuon,"dimuon");
   chiCand.addDaughter(photon,"photon");
-  const reco::Vertex *ipv = dimuon.userData<reco::Vertex>("commonVertex");
-  chiCand.setVertex(ipv->position());
+  const reco::Vertex *ivtx = dimuon.userData<reco::Vertex>("commonVertex");
+  chiCand.setVertex(ivtx->position());
   reco::Candidate::LorentzVector vChic = dimuon.p4() + photon.p4();
   chiCand.setP4(vChic);
   return chiCand;
