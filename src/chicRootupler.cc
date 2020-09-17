@@ -569,7 +569,11 @@ void chicRootupler::analyze(const edm::Event & iEvent, const edm::EventSetup & i
 					trk_phi_arr.push_back(X_cand.daughter("pionpm")->phi());
 					trk_e_arr.push_back(X_cand.daughter("pionpm")->energy());
 					X_index_arr.push_back(i);
-					
+					trk_PVassociation_arr.push_back(X_cand.userInt("PV_association"));
+					trk_chidz_arr.push_back(X_cand.userFloat("dz_chitrk"));
+					trk_chidca_arr.push_back(X_cand.userFloat("DCA_chitrk"));
+					trk_Hcalfrac_arr.push_back(X_cand.userFloat("HcalFrac"));
+					trk_isIsoChgHad_arr.push_back(X_cand.userInt("isIsoChgHad"));
 				}
 			}
 		}
@@ -596,11 +600,6 @@ void chicRootupler::analyze(const edm::Event & iEvent, const edm::EventSetup & i
 					rfX_mass_arr.push_back(Xfitted.mass());
 					probFitX_arr.push_back(Xfitted.userFloat("vProb"));
 					rfX_index_arr.push_back(i);
-					trk_PVassociation_arr.push_back(Xfitted.userInt("PV_association"));
-					trk_chidz_arr.push_back(Xfitted.userFloat("dz_chitrk"));
-					trk_chidca_arr.push_back(Xfitted.userFloat("DCA_chitrk"));
-					trk_Hcalfrac_arr.push_back(Xfitted.userFloat("HcalFrac"));
-					trk_isIsoChgHad_arr.push_back(Xfitted.userInt("isIsoChgHad"));
 				}
 			}
 		}
