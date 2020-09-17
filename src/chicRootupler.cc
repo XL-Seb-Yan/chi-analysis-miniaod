@@ -117,7 +117,12 @@ class chicRootupler:public edm::EDAnalyzer {
 		std::vector<Double_t> trk_eta_arr;
 		std::vector<Double_t> trk_phi_arr;
 		std::vector<Double_t> trk_e_arr;
-		std::vector<Int_t> X_index_arr;
+		std::vector<Int_t>    X_index_arr;
+		std::vector<Int_t>    trk_PVassociation_arr;
+		std::vector<Double_t> trk_chidz_arr;
+		std::vector<Double_t> trk_chidca_arr;
+		std::vector<Double_t> trk_Hcalfrac_arr;
+		std::vector<Int_t>    trk_isIsoChgHad_arr;
 		
 		//For fitted X
 		std::vector<Double_t> rfX_pt_arr;
@@ -216,6 +221,11 @@ chicRootupler::chicRootupler(const edm::ParameterSet & iConfig):
 	chi_tree->Branch("X_phi",              &X_phi_arr);
 	chi_tree->Branch("X_mass",             &X_mass_arr);
 	chi_tree->Branch("X_index",            &X_index_arr);
+	chi_tree->Branch("trk_PVassociation",  &trk_PVassociation_arr);
+	chi_tree->Branch("trk_chidz",          &trk_chidz_arr);
+	chi_tree->Branch("trk_chidca",         &trk_chidca_arr);
+	chi_tree->Branch("trk_Hcalfrac",       &trk_Hcalfrac_arr);
+	chi_tree->Branch("trk_isIsoChgHad",    &trk_isIsoChgHad_arr);
 	
 	chi_tree->Branch("rfX_pt",             &rfX_pt_arr);
 	chi_tree->Branch("rfX_eta",            &rfX_eta_arr);
@@ -427,6 +437,11 @@ void chicRootupler::analyze(const edm::Event & iEvent, const edm::EventSetup & i
 	X_phi_arr.clear();
 	X_mass_arr.clear();
 	X_index_arr.clear();
+	trk_PVassociation_arr.clear();
+	trk_chidz_arr.clear();
+	trk_chidca_arr.clear();
+	trk_Hcalfrac_arr.clear();
+	trk_isIsoChgHad_arr.clear();
 	rfX_pt_arr.clear();
 	rfX_eta_arr.clear();
 	rfX_phi_arr.clear();
@@ -554,6 +569,7 @@ void chicRootupler::analyze(const edm::Event & iEvent, const edm::EventSetup & i
 					trk_phi_arr.push_back(X_cand.daughter("pionpm")->phi());
 					trk_e_arr.push_back(X_cand.daughter("pionpm")->energy());
 					X_index_arr.push_back(i);
+					
 				}
 			}
 		}
@@ -580,6 +596,11 @@ void chicRootupler::analyze(const edm::Event & iEvent, const edm::EventSetup & i
 					rfX_mass_arr.push_back(Xfitted.mass());
 					probFitX_arr.push_back(Xfitted.userFloat("vProb"));
 					rfX_index_arr.push_back(i);
+					trk_PVassociation_arr.push_back(Xfitted.userInt("PV_association"));
+					trk_chidz_arr.push_back(Xfitted.userFloat("dz_chitrk"));
+					trk_chidca_arr.push_back(Xfitted.userFloat("DCA_chitrk"));
+					trk_Hcalfrac_arr.push_back(Xfitted.userFloat("HcalFrac"));
+					trk_isIsoChgHad_arr.push_back(Xfitted.userInt("isIsoChgHad"));
 				}
 			}
 		}

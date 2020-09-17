@@ -365,27 +365,15 @@ void XDecayTreeKinematicFit::produce(edm::Event& iEvent, const edm::EventSetup& 
 										   sqrt(gammaM_3trkfit*gammaM_3trkfit + gammaPx_3trkfit*gammaPx_3trkfit + gammaPy_3trkfit*gammaPy_3trkfit +
 										   gammaPz_3trkfit*gammaPz_3trkfit)), math::XYZPoint(ChiVtxX_fit, ChiVtxY_fit, ChiVtxZ_fit), 22);
 	pat::CompositeCandidate patGamma_3trkfit(recoGamma_3trkfit);
-
-	patChi_3trkfit.addDaughter(meson_1S_3trkfit,"dimuon");
-	patChi_3trkfit.addDaughter(patGamma_3trkfit,"photon");
-	patChi_3trkfit.addUserInt("Index",indexChiCand);  // this also holds the index of the current chiCand
-
-	chicCompCandRefitColl->push_back(patChi_3trkfit);	
 	
-	validchi++;
-	chi_fitted_candidates++;
-
-	edm::Handle<std::vector<pat::PackedCandidate>> trackHandle;
-	iEvent.getByToken(track_Label, trackHandle);
-
-	//locate the PV, see https://twiki.cern.ch/twiki/bin/view/CMSPublic/SWGuideOnia2MuMuPAT
-	const reco::Vertex *dimu_vertex = dynamic_cast<const pat::CompositeCandidate*>(chiCand->daughter("dimuon"))->userData<reco::Vertex>("commonVertex");
-	reco::Candidate::LorentzVector dimu_p4 = dynamic_cast<const pat::CompositeCandidate*>(chiCand->daughter("dimuon"))->p4();
-	unsigned int dimu_PV_index = 0; //default PV is the first one in PV collection -> highest pt sum
+	//locate the PV closed to the fitted chi, see https://twiki.cern.ch/twiki/bin/view/CMSPublic/SWGuideOnia2MuMuPAT
+	// const reco::Vertex *dimu_vertex = dynamic_cast<const pat::CompositeCandidate*>(chiCand->daughter("dimuon"))->userData<reco::Vertex>("commonVertex");
+	// reco::Candidate::LorentzVector dimu_p4 = dynamic_cast<const pat::CompositeCandidate*>(chiCand->daughter("dimuon"))->p4();
+	unsigned int chi_PV_index = 0; //default PV is the first one in PV collection -> highest pt sum
+	float minDz = 999999;
 	if(resolvePVAmbiguity_){
-		float minDz = 999999;
 		TwoTrackMinimumDistance ttmd;
-		bool status = ttmd.calculate(GlobalTrajectoryParameters(GlobalPoint(dimu_vertex->position().x(), dimu_vertex->position().y(), dimu_vertex->position().z()),GlobalVector(dimu_p4.px(),dimu_p4.py(),dimu_p4.pz()),TrackCharge(0),&(*magneticField)), GlobalTrajectoryParameters(GlobalPoint(bs.position().x(), bs.position().y(), bs.position().z()),GlobalVector(bs.dxdz(), bs.dydz(), 1),TrackCharge(0),&(*magneticField)));
+		bool status = ttmd.calculate(GlobalTrajectoryParameters(GlobalPoint(ChiVtxX_fit, ChiVtxY_fit, ChiVtxZ_fit),GlobalVector(ChiPx_fit,ChiPy_fit,ChiPz_fit),TrackCharge(0),&(*magneticField)), GlobalTrajectoryParameters(GlobalPoint(bs.position().x(), bs.position().y(), bs.position().z()),GlobalVector(bs.dxdz(), bs.dydz(), 1),TrackCharge(0),&(*magneticField)));
 		float extrapZ = -9E20;
 		if(status) 
 			extrapZ=ttmd.points().first.z();
@@ -393,12 +381,25 @@ void XDecayTreeKinematicFit::produce(edm::Event& iEvent, const edm::EventSetup& 
 			float deltaZ = fabs(extrapZ - priVtxs->at(ipv).position().z()) ;
 			if (deltaZ < minDz){
 				minDz = deltaZ;    
-				dimu_PV_index = ipv;
+				chi_PV_index = ipv;
 			}
 		}
 	}
-	const reco::Vertex dimu_PV = priVtxs->at(dimu_PV_index); //the PV which closest to J/psi in dz becomes the selected PV
+	const reco::Vertex chi_PV = priVtxs->at(chi_PV_index); //the PV which closest to J/psi in dz becomes the selected PV
 
+	patChi_3trkfit.addDaughter(meson_1S_3trkfit,"dimuon");
+	patChi_3trkfit.addDaughter(patGamma_3trkfit,"photon");
+	patChi_3trkfit.addUserInt("Index",indexChiCand);  // this also holds the index of the current chiCand
+	patChi_3trkfit.addUserInt("PV_index",chi_PV_index);
+	patChi_3trkfit.addUserFloat("dz_PVdimu",minDz);
+
+	chicCompCandRefitColl->push_back(patChi_3trkfit);	
+	validchi++;
+	chi_fitted_candidates++;
+
+	edm::Handle<std::vector<pat::PackedCandidate>> trackHandle;
+	iEvent.getByToken(track_Label, trackHandle);
+	
 	int trk_index = -1;
 	for (std::vector<pat::PackedCandidate>::const_iterator iTrack = trackHandle->begin(); iTrack != trackHandle->end(); ++iTrack){ //pair the fitted chi_c with a track
 		trk_index++;
@@ -413,39 +414,19 @@ void XDecayTreeKinematicFit::produce(edm::Event& iEvent, const edm::EventSetup& 
 		TLorentzVector itrk_p4;
 		itrk_p4.SetPtEtaPhiE(iTrack->pt(),iTrack->eta(),iTrack->phi(),iTrack->energy());
 		X_prefit_p4 = rf_chi_p4 + itrk_p4;
+		if(X_prefit_p4.M() < 3.872 - deltaMass_ || X_prefit_p4.M() > 3.872 + deltaMass_) continue;
 		if(X_prefit_p4.DeltaR(itrk_p4) > deltaR_pi_) continue;
-		int pion_charge = iTrack->charge();
 		
 		//Now let's checks if the track we are selecting is the muon or conversion electron we already selected
 		const pat::Muon *mu0 = dynamic_cast<const pat::Muon*>(chiCand->daughter("dimuon")->daughter("muon1"));
 		const pat::Muon *mu1 = dynamic_cast<const pat::Muon*>(chiCand->daughter("dimuon")->daughter("muon2"));
 		if (IsTheSameMu(*iTrack,mu0) || IsTheSameMu(*iTrack,mu1) ) continue;
 		if (IsTheSameEle(*iTrack,tk0) || IsTheSameEle(*iTrack,tk1) ) continue;
-
-		const ParticleMass pionpmMass(0.1395704); //Assuming this track is a charged pion n: 0.1349766 pm: 0.1395704
-		float pionpmSigma = pionpmMass*1E-6;
-
-		// Do a simple check of chi+pion invariant mass before kinematic fit
-		TLorentzVector pionpm_p4;
-		pionpm_p4.SetXYZM(iTrack->px(),iTrack->py(),iTrack->pz(),pionpmMass); //track has pion mass
-		X_prefit_p4 = rf_chi_p4 + pionpm_p4;
-		if(X_prefit_p4.M() < 3.872 - deltaMass_ || X_prefit_p4.M() > 3.872 + deltaMass_) continue;
-		double dz = iTrack->dz(reco::Candidate::Point(ChiVtxX_fit, ChiVtxY_fit, ChiVtxZ_fit)); //IP using the fitted chi vertex as a reference
 		
-		//find the index of trk associated PV
-		// unsigned int trk_PV_index = -1;
-		// for (unsigned int ipv=0; ipv<priVtxs->size(); ipv++){
-			// if(fabs(priVtxs->at(ipv).x()-iTrack->vertexRef()->x()) < 0.002 && fabs(priVtxs->at(ipv).y()-iTrack->vertexRef()->y()) < 0.002 && fabs(priVtxs->at(ipv).z()-iTrack->vertexRef()->z()) < 0.002){//simple vertex matching
-				// trk_PV_index = ipv;
-				// break;
-			// }
-		// }
-		// if(trk_PV_index != dimu_PV_index) continue;
-		
-		//make sure track comes from the same vertex, results are the same as above
-		if(fabs(iTrack->vertexRef()->x()-dimu_PV.x()) > 0.002 || fabs(iTrack->vertexRef()->y()-dimu_PV.y()) > 0.002 || fabs(iTrack->vertexRef()->z()-dimu_PV.z()) > 0.002)
+		//make sure track comes from the same PV as the dimuon does
+		if(fabs(iTrack->vertexRef()->x()-chi_PV.x()) > 0.002 || fabs(iTrack->vertexRef()->y()-chi_PV.y()) > 0.002 || fabs(iTrack->vertexRef()->z()-chi_PV.z()) > 0.002)
 			continue;
-		if(iTrack->fromPV() < 1) //track association to the vertexRef(), used for isolation calculations, see https://twiki.cern.ch/twiki/bin/view/CMSPublic/WorkBookMiniAOD2017
+		if(iTrack->fromPV() < 2) //track association to the vertexRef(), used for isolation calculations, see https://twiki.cern.ch/twiki/bin/view/CMSPublic/WorkBookMiniAOD2017
 			continue;
 		
 		//DCA
@@ -460,29 +441,38 @@ void XDecayTreeKinematicFit::produce(edm::Event& iEvent, const edm::EventSetup& 
 		// myCand.addUserFloat("DCA", dca );
 		
 		//DCA
+		int pion_charge = iTrack->charge();
 		FreeTrajectoryState chiFTS(GlobalPoint(ChiVtxX_fit, ChiVtxY_fit, ChiVtxZ_fit),GlobalVector(ChiPx_fit,ChiPy_fit,ChiPz_fit),TrackCharge(0),&(*magneticField));
-		FreeTrajectoryState pionFTS(GlobalPoint(iTrack->vertexRef()->x(), iTrack->vertexRef()->y(), iTrack->vertexRef()->z()),GlobalVector(iTrack->px(),iTrack->py(),iTrack->pz()),TrackCharge(pion_charge),&(*magneticField));
+		FreeTrajectoryState trkFTS(GlobalPoint(iTrack->vertexRef()->x(), iTrack->vertexRef()->y(), iTrack->vertexRef()->z()),GlobalVector(iTrack->px(),iTrack->py(),iTrack->pz()),TrackCharge(pion_charge),&(*magneticField));
 		float dca = 1E20;
 		ClosestApproachInRPhi cApp; //closest approach in the transverse plane
-		cApp.calculate(chiFTS, pionFTS);
+		cApp.calculate(chiFTS, trkFTS);
 		if(cApp.status())
 			dca = cApp.distance();
+		
+		//dz
+		double dz = iTrack->dz(reco::Candidate::Point(ChiVtxX_fit, ChiVtxY_fit, ChiVtxZ_fit)); //IP using the fitted chi vertex as a reference
 		
 		pat::CompositeCandidate XCand;
 		XCand.addDaughter(*chiCand,"chi");
 		XCand.addDaughter(*iTrack,"pionpm");
 		XCand.addUserInt("Index",indexChiCand);  // this also holds the index of the current chiCand
-		XCand.addUserFloat("dz_chipi",dz);
-		XCand.addUserFloat("DCA_chipi", dca);
+		XCand.addUserInt("PV_association",iTrack->fromPV()); 
+		XCand.addUserFloat("dz_chitrk",dz);
+		XCand.addUserFloat("DCA_chitrk", dca);
 		XCand.addUserFloat("HcalFrac",iTrack->hcalFraction());
 		XCand.addUserInt("isIsoChgHad", iTrack->isIsolatedChargedHadron());
-		reco::Candidate::LorentzVector vX = chiCand->p4() + iTrack->p4();
+		reco::Candidate::LorentzVector vX;
+		vX.SetPxPyPzE(X_prefit_p4.Px(),X_prefit_p4.Py(),X_prefit_p4.Pz(),X_prefit_p4.E());
 		XCand.setP4(vX);
+		
 		XCandCompCandRefitColl->push_back(XCand);	
 		preX++;
 		X_candidates++;
   
 		reco::TransientTrack pionpmTT = (*TTrkBuilder).build(iTrack->pseudoTrack());
+		const ParticleMass pionpmMass(0.1395704); //Assuming this track is a charged pion n: 0.1349766 pm: 0.1395704
+		float pionpmSigma = pionpmMass*1E-6;
 
 		//Currently we perform 4-track fit with di-muon J/psi mass constraints , maybe can do 2-track fit with chi_c mass constraints?
 		std::vector<RefCountedKinematicParticle> allXDaughters;
